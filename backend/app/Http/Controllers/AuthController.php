@@ -249,4 +249,123 @@ class AuthController extends Controller
             'message' => 'Logged out'
         ];
     }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email'
+        ]);
+
+        $user = \App\Models\User::where('email', $request->email)->first();
+
+        if (!$user->is_active) {
+            return response()->json(['message' => 'Account not verified. Please complete registration first.'], 422);
+        }
+
+        // Expire old password reset OTPs
+        \App\Models\OtpCode::where('user_id', $user->id)
+            ->where('purpose', 'PASSWORD_RESET')
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
+
+        // Generate new OTP for password reset
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        
+        \App\Models\OtpCode::create([
+            'user_id' => $user->id,
+            'code' => $otp,
+            'purpose' => 'PASSWORD_RESET',
+            'expires_at' => now()->addMinutes(10)
+        ]);
+
+        // Send OTP email
+        try {
+            Mail::to($user->email)->send(new OtpEmail($otp, $user->full_name, 'Password Reset'));
+        } catch (\Exception $e) {
+            Log::error('Password Reset Mail Error: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'Password reset code sent to your email.',
+            'email' => $user->email
+        ], 200);
+    }
+
+    public function verifyResetOtp(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'code' => 'required|string|size:6'
+        ]);
+
+        $user = \App\Models\User::where('email', $request->email)->first();
+        
+        $otpCode = \App\Models\OtpCode::where('user_id', $user->id)
+            ->where('code', $request->code)
+            ->where('purpose', 'PASSWORD_RESET')
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$otpCode) {
+            return response()->json(['message' => 'Invalid or expired reset code'], 422);
+        }
+
+        // Generate a temporary reset token (valid for 15 minutes)
+        $resetToken = bin2hex(random_bytes(32));
+        
+        // Store reset token in cache or database (using OTP table for simplicity)
+        \App\Models\OtpCode::create([
+            'user_id' => $user->id,
+            'code' => $resetToken,
+            'purpose' => 'RESET_TOKEN',
+            'expires_at' => now()->addMinutes(15)
+        ]);
+
+        // Mark OTP as used
+        $otpCode->markAsUsed();
+
+        return response()->json([
+            'message' => 'Reset code verified successfully',
+            'reset_token' => $resetToken,
+            'email' => $user->email
+        ], 200);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'reset_token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed'
+        ]);
+
+        $user = \App\Models\User::where('email', $request->email)->first();
+        
+        // Verify reset token
+        $resetToken = \App\Models\OtpCode::where('user_id', $user->id)
+            ->where('code', $request->reset_token)
+            ->where('purpose', 'RESET_TOKEN')
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$resetToken) {
+            return response()->json(['message' => 'Invalid or expired reset token'], 422);
+        }
+
+        // Update password
+        $user->password_hash = bcrypt($request->password);
+        $user->save();
+
+        // Mark reset token as used
+        $resetToken->markAsUsed();
+
+        // Revoke all existing tokens for security
+        $user->tokens()->delete();
+
+        return response()->json([
+            'message' => 'Password reset successfully. Please login with your new password.'
+        ], 200);
+    }
 }

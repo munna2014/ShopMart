@@ -113,7 +113,7 @@ export default function VerifyOTP() {
 
     try {
       await api.post("/resend-otp", { email: email });
-      setTimeLeft(600); // Reset timer
+      setTimeLeft(120); // Reset timer
       setOtp(["", "", "", "", "", ""]); // Clear current OTP
       inputRefs.current[0]?.focus();
     } catch (error) {

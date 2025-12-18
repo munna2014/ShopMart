@@ -5,7 +5,7 @@ require_once 'vendor/autoload.php';
 echo "Testing Password Reset Flow\n";
 echo "===========================\n\n";
 
-$testEmail = 'test@example.com';
+$testEmail = 'testuser@example.com';
 
 // Test 1: Request password reset
 echo "1. Testing forgot password request...\n";

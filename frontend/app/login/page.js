@@ -11,6 +11,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [rememberMe, setRememberMe] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
@@ -52,9 +53,10 @@ export default function Login() {
       // Often keys are data.token or just token.
 
       const token = response.data.token;
-
       if (token) {
-        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
+        // Expiration: 1 day if not remembered, 30 days if remembered
+        const maxAge = rememberMe ? 2592000 : 86400;
+        document.cookie = `token=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
         localStorage.setItem("token", token);
       }
 
@@ -215,6 +217,8 @@ export default function Login() {
                 <input
                   id="remember-me"
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-4 h-4 rounded border-green-300 text-green-600 focus:ring-green-400 bg-green-50"
                 />
                 <label

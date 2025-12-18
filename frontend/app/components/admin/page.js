@@ -64,91 +64,9 @@ export default function AdminDashboard() {
     },
   ]);
 
-  const [customers, setCustomers] = useState([
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john@example.com",
-      orders: 12,
-      spent: "$1,234",
-      joined: "Jan 2024",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane@example.com",
-      orders: 8,
-      spent: "$890",
-      joined: "Feb 2024",
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      email: "mike@example.com",
-      orders: 15,
-      spent: "$2,100",
-      joined: "Dec 2023",
-    },
-    {
-      id: 4,
-      name: "Sarah Williams",
-      email: "sarah@example.com",
-      orders: 6,
-      spent: "$650",
-      joined: "Mar 2024",
-    },
-  ]);
+  const [customers, setCustomers] = useState([]);
 
-  const [orders, setOrders] = useState([
-    {
-      id: 1,
-      orderId: "#ORD-2024-001",
-      customer: "John Doe",
-      customerEmail: "john@example.com",
-      date: "Dec 10, 2024",
-      status: "Delivered",
-      total: "$329.98",
-      products: [
-        { name: "Wireless Headphones", quantity: 1, price: "$199.99" },
-        { name: "Smart Watch", quantity: 1, price: "$129.99" },
-      ],
-    },
-    {
-      id: 2,
-      orderId: "#ORD-2024-002",
-      customer: "Jane Smith",
-      customerEmail: "jane@example.com",
-      date: "Dec 8, 2024",
-      status: "Shipped",
-      total: "$89.99",
-      products: [{ name: "Designer Backpack", quantity: 1, price: "$89.99" }],
-    },
-    {
-      id: 3,
-      orderId: "#ORD-2024-003",
-      customer: "Mike Johnson",
-      customerEmail: "mike@example.com",
-      date: "Dec 5, 2024",
-      status: "Processing",
-      total: "$1,099.98",
-      products: [
-        { name: "4K Camera", quantity: 1, price: "$699.99" },
-        { name: "Smart Watch", quantity: 1, price: "$399.99" },
-      ],
-    },
-    {
-      id: 4,
-      orderId: "#ORD-2024-004",
-      customer: "Sarah Williams",
-      customerEmail: "sarah@example.com",
-      date: "Dec 3, 2024",
-      status: "Delivered",
-      total: "$199.99",
-      products: [
-        { name: "Wireless Headphones", quantity: 1, price: "$199.99" },
-      ],
-    },
-  ]);
+  const [orders, setOrders] = useState([]);
 
   const handleDeleteProduct = (id) => {
     if (confirm("Are you sure you want to delete this product?")) {

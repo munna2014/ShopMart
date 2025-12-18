@@ -14,7 +14,7 @@ export default function VerifyOTP() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [errors, setErrors] = useState({});
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes
   const inputRefs = useRef([]);
 
   // Redirect if no email
@@ -113,7 +113,7 @@ export default function VerifyOTP() {
 
     try {
       await api.post("/resend-otp", { email: email });
-      setTimeLeft(600); // Reset timer
+      setTimeLeft(120); // Reset timer
       setOtp(["", "", "", "", "", ""]); // Clear current OTP
       inputRefs.current[0]?.focus();
     } catch (error) {

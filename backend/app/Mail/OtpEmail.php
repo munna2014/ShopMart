@@ -14,14 +14,16 @@ class OtpEmail extends Mailable
 
     public $otp;
     public $userName;
+    public $purpose;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($otp, $userName)
+    public function __construct($otp, $userName, $purpose = 'Email Verification')
     {
         $this->otp = $otp;
         $this->userName = $userName;
+        $this->purpose = $purpose;
     }
 
     /**
@@ -29,8 +31,12 @@ class OtpEmail extends Mailable
      */
     public function envelope(): Envelope
     {
+        $subject = $this->purpose === 'Password Reset' 
+            ? 'Password Reset Code - ShopMart' 
+            : 'Verification Code - ShopMart';
+            
         return new Envelope(
-            subject: 'Verification Code - ShopMart',
+            subject: $subject,
         );
     }
 

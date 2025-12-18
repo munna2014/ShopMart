@@ -173,7 +173,7 @@ export default function Login() {
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
                   }`}
-                  placeholder="name@example.com"
+                  placeholder="Enter your email"
                 />
               </div>
               {errors?.email && (
@@ -229,12 +229,12 @@ export default function Login() {
                 </label>
               </div>
               <div className="text-sm">
-                <a
-                  href="#"
+                <Link
+                  href="/forgot-password"
                   className="font-semibold text-green-600 hover:text-green-800 transition-colors"
                 >
                   Forgot password?
-                </a>
+                </Link>
               </div>
             </div>
 

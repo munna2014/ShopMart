@@ -58,14 +58,14 @@ export default function Page() {
   const customerData = {
     name: user.full_name || user.name || "Customer",
     email: user.email,
-    phone: user.phone || "+1 (555) 123-4567",
+    phone: user.phone || "",
     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
       user.full_name || user.name || "Customer"
     )}&size=200&background=059669&color=fff`,
     joinDate: joinDate,
-    totalOrders: 24, // Placeholder until order API is ready
-    totalSpent: "$2,450.00",
-    loyaltyPoints: 1250,
+    totalOrders: 0,
+    totalSpent: "$0.00",
+    loyaltyPoints: 0,
   };
 
   return <CustomerView customer={customerData} />;

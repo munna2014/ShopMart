@@ -11,18 +11,29 @@
             <!-- Header -->
             <div style="text-align: center; margin-bottom: 30px;">
                 <h1 style="color: #059669; font-size: 28px; margin: 0; font-weight: bold;">ShopMart</h1>
-                <p style="color: #666; margin: 5px 0 0 0;">Email Verification</p>
+                <p style="color: #666; margin: 5px 0 0 0;">{{ $purpose }}</p>
             </div>
 
             <!-- Content -->
-            <h2 style="color: #059669; text-align: center; margin-bottom: 20px;">Welcome to ShopMart!</h2>
-            
-            <p style="font-size: 16px; margin-bottom: 20px;">Hi {{ $userName }},</p>
-            
-            <p style="font-size: 16px; margin-bottom: 30px;">
-                Thank you for registering with ShopMart! To complete your registration and verify your email address, 
-                please use the following 6-digit verification code:
-            </p>
+            @if($purpose === 'Password Reset')
+                <h2 style="color: #059669; text-align: center; margin-bottom: 20px;">Password Reset Request</h2>
+                
+                <p style="font-size: 16px; margin-bottom: 20px;">Hi {{ $userName }},</p>
+                
+                <p style="font-size: 16px; margin-bottom: 30px;">
+                    We received a request to reset your password for your ShopMart account. 
+                    Please use the following 6-digit code to proceed with password reset:
+                </p>
+            @else
+                <h2 style="color: #059669; text-align: center; margin-bottom: 20px;">Welcome to ShopMart!</h2>
+                
+                <p style="font-size: 16px; margin-bottom: 20px;">Hi {{ $userName }},</p>
+                
+                <p style="font-size: 16px; margin-bottom: 30px;">
+                    Thank you for registering with ShopMart! To complete your registration and verify your email address, 
+                    please use the following 6-digit verification code:
+                </p>
+            @endif
 
             <!-- OTP Code -->
             <div style="text-align: center; margin: 40px 0;">
@@ -34,13 +45,19 @@
             <!-- Instructions -->
             <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; border-left: 4px solid #059669; margin: 30px 0;">
                 <p style="margin: 0; font-size: 14px; color: #065f46;">
-                    <strong>Important:</strong> This verification code will expire in 10 minutes for security reasons.
+                    <strong>Important:</strong> This verification code will expire in 2 minutes for security reasons.
                 </p>
             </div>
 
-            <p style="font-size: 16px; margin-bottom: 20px;">
-                If you didn't create an account with ShopMart, please ignore this email. No further action is required.
-            </p>
+            @if($purpose === 'Password Reset')
+                <p style="font-size: 16px; margin-bottom: 20px;">
+                    If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
+                </p>
+            @else
+                <p style="font-size: 16px; margin-bottom: 20px;">
+                    If you didn't create an account with ShopMart, please ignore this email. No further action is required.
+                </p>
+            @endif
 
             <!-- Footer -->
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 40px 0 20px 0;">

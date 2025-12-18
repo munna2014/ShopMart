@@ -13,6 +13,7 @@ class OtpCode extends Model
 
     protected $fillable = [
         'user_id',
+        'pending_user_id',
         'code',
         'purpose',
         'expires_at',
@@ -31,6 +32,14 @@ class OtpCode extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Pending user relationship
+     */
+    public function pendingUser()
+    {
+        return $this->belongsTo(PendingUser::class);
     }
 
     /**

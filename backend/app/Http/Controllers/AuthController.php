@@ -3,32 +3,212 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Mail\OtpEmail;
 
 class AuthController extends Controller
 {
-    public function register(\Illuminate\Http\Request $request)
+    public function register(Request $request)
     {
-        $fields = $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|string|email|unique:users,email',
-            'password' => 'required|string|confirmed'
+        try {
+            $fields = $request->validate([
+                'name' => 'required|string',
+                'email' => 'required|string|email|unique:users,email|unique:pending_users,email',
+                'password' => 'required|string|confirmed'
+            ]);
+
+            // Create pending user (NOT in main users table yet)
+            $pendingUser = \App\Models\PendingUser::create([
+                'full_name' => $fields['name'],
+                'email' => $fields['email'],
+                'password_hash' => bcrypt($fields['password']),
+                'expires_at' => now()->addHours(24) // Expires in 24 hours if not verified
+            ]);
+
+            // Generate 6-digit OTP
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            
+            // Store OTP linked to pending user
+            \App\Models\OtpCode::create([
+                'pending_user_id' => $pendingUser->id,
+                'code' => $otp,
+                'purpose' => 'GENERAL',
+                'expires_at' => now()->addMinutes(10)
+            ]);
+
+            // Send OTP email
+            try {
+                Mail::to($pendingUser->email)->send(new OtpEmail($otp, $pendingUser->full_name));
+            } catch (\Exception $e) {
+                Log::error('Mail Error: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'message' => 'Registration successful. Please check your email for verification code.',
+                'email' => $pendingUser->email,
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Registration Error: ' . $e->getMessage());
+            return response()->json(['message' => 'An internal error occurred.'], 500);
+        }
+    }
+
+    public function verifyOtp(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string|size:6'
         ]);
 
-        $user = \App\Models\User::create([
-            'full_name' => $fields['name'],
-            'email' => $fields['email'],
-            'password_hash' => bcrypt($fields['password'])
-        ]);
+        // First check if it's a pending user
+        $pendingUser = \App\Models\PendingUser::where('email', $request->email)->first();
+        
+        if ($pendingUser) {
+            // Check if pending user has expired
+            if ($pendingUser->isExpired()) {
+                $pendingUser->delete();
+                return response()->json(['message' => 'Registration has expired. Please register again.'], 422);
+            }
+
+            $otpCode = \App\Models\OtpCode::where('pending_user_id', $pendingUser->id)
+                ->where('code', $request->code)
+                ->where('purpose', 'GENERAL')
+                ->whereNull('used_at')
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if (!$otpCode) {
+                return response()->json(['message' => 'Invalid or expired OTP'], 422);
+            }
+
+            $otpCode->markAsUsed();
+            
+            // Move pending user to main users table
+            $user = $pendingUser->moveToUsers();
+            
+            $token = $user->createToken('myapptoken')->plainTextToken;
+
+            return response()->json([
+                'message' => 'Email verified successfully',
+                'user' => $user,
+                'token' => $token
+            ], 200);
+        }
+
+        // If not pending user, check existing users (for password reset, etc.)
+        $user = \App\Models\User::where('email', $request->email)->first();
+        
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+        
+        $otpCode = \App\Models\OtpCode::where('user_id', $user->id)
+            ->where('code', $request->code)
+            ->where('purpose', 'GENERAL')
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$otpCode) {
+            return response()->json(['message' => 'Invalid or expired OTP'], 422);
+        }
+
+        $otpCode->markAsUsed();
+        $user->is_active = true;
+        $user->save();
 
         $token = $user->createToken('myapptoken')->plainTextToken;
 
         return response()->json([
+            'message' => 'Email verified successfully',
             'user' => $user,
             'token' => $token
-        ], 201);
+        ], 200);
     }
 
-    public function login(\Illuminate\Http\Request $request)
+    public function resendOtp(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+        
+        // First check if it's a pending user
+        $pendingUser = \App\Models\PendingUser::where('email', $request->email)->first();
+        
+        if ($pendingUser) {
+            // Check if pending user has expired
+            if ($pendingUser->isExpired()) {
+                $pendingUser->delete();
+                return response()->json(['message' => 'Registration has expired. Please register again.'], 422);
+            }
+
+            // Expire old OTPs for pending user
+            \App\Models\OtpCode::where('pending_user_id', $pendingUser->id)
+                ->whereNull('used_at')
+                ->update(['used_at' => now()]);
+
+            // Generate new OTP
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            
+            \App\Models\OtpCode::create([
+                'pending_user_id' => $pendingUser->id,
+                'code' => $otp,
+                'purpose' => 'GENERAL',
+                'expires_at' => now()->addMinutes(10)
+            ]);
+
+            // Send OTP email
+            try {
+                Mail::to($pendingUser->email)->send(new OtpEmail($otp, $pendingUser->full_name));
+            } catch (\Exception $e) {
+                Log::error('Mail Error: ' . $e->getMessage());
+            }
+
+            return response()->json([
+                'message' => 'New OTP sent to your email.',
+            ], 200);
+        }
+
+        // Check existing users
+        $user = \App\Models\User::where('email', $request->email)->first();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Email not found'], 404);
+        }
+        
+        if ($user->is_active) {
+            return response()->json(['message' => 'User is already verified'], 422);
+        }
+
+        // Expire old OTPs
+        \App\Models\OtpCode::where('user_id', $user->id)
+            ->whereNull('used_at')
+            ->update(['used_at' => now()]);
+
+        // Generate new OTP
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        
+        \App\Models\OtpCode::create([
+            'user_id' => $user->id,
+            'code' => $otp,
+            'purpose' => 'GENERAL',
+            'expires_at' => now()->addMinutes(10)
+        ]);
+
+        // Send OTP email
+        try {
+            Mail::to($user->email)->send(new OtpEmail($otp, $user->full_name));
+        } catch (\Exception $e) {
+            Log::error('Mail Error: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'New OTP sent to your email.',
+        ], 200);
+    }
+
+    public function login(Request $request)
     {
         $fields = $request->validate([
             'email' => 'required|email',
@@ -45,6 +225,14 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Check if user is verified
+        if (!$user->is_active) {
+            return response()->json([
+                'message' => 'Please verify your email before logging in.',
+                'not_verified' => true
+            ], 403);
+        }
+
         $token = $user->createToken('myapptoken')->plainTextToken;
 
         return response()->json([
@@ -53,7 +241,7 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function logout(\Illuminate\Http\Request $request)
+    public function logout(Request $request)
     {
         auth()->user()->tokens()->delete();
 

@@ -59,7 +59,11 @@ export default function Register() {
 
     try {
       const response = await api.post("/register", formData);
-      router.push("/login");
+      
+      if (response.status === 201 || response.status === 200) {
+        // Redirect to OTP verification page with email parameter
+        router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
+      }
     } catch (error) {
       if (error.response && error.response.status === 422) {
         setErrors(error.response.data.errors);

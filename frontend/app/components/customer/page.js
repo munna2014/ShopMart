@@ -1,44 +1,49 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import CustomerView from "./CustomerView";
+import api from "@/lib/axios";
 
-async function getUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token");
+export default function Page() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  if (!token) {
-    return null;
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      try {
+        const response = await api.get("/user");
+        setUser(response.data);
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        localStorage.removeItem("token");
+        router.push("/login");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
+      </div>
+    );
   }
-
-  try {
-    // Communicate with Nginx container internally
-    const res = await fetch("http://webserver/api/user", {
-      headers: {
-        Authorization: `Bearer ${token.value}`,
-        Accept: "application/json",
-        Host: "localhost", // Force Host header to match Nginx config
-      },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("API response not OK:", res.status, text);
-      return null;
-    }
-
-    return await res.json();
-  } catch (error) {
-    console.error("Server Fetch Error:", error);
-    return null;
-  }
-}
-
-export default async function Page() {
-  const user = await getUser();
 
   if (!user) {
-    redirect("/login");
+    return null; // Will redirect to login
   }
 
   // Format the join date if available, otherwise default

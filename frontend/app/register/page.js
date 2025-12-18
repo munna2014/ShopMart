@@ -59,15 +59,7 @@ export default function Register() {
 
     try {
       const response = await api.post("/register", formData);
-
-      const token = response.data.token;
-      if (token) {
-        document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
-        localStorage.setItem("token", token);
-        router.push("/components/customer");
-      } else {
-        router.push("/login");
-      }
+      router.push("/login");
     } catch (error) {
       if (error.response && error.response.status === 422) {
         setErrors(error.response.data.errors);
@@ -267,7 +259,6 @@ export default function Register() {
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
                   }`}
-                  placeholder="••••••••"
                 />
               </div>
               {errors?.password_confirmation && (

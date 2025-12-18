@@ -14,7 +14,34 @@ export default function Register() {
     password_confirmation: "",
   });
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState(null);
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = ["Name is required"];
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = ["Email is required"];
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = ["Email is invalid"];
+    }
+
+    if (!formData.password) {
+      newErrors.password = ["Password is required"];
+    } else if (formData.password.length < 4) {
+      newErrors.password = ["Password must be at least 4 characters"];
+    }
+
+    if (formData.password !== formData.password_confirmation) {
+      newErrors.password_confirmation = ["Passwords do not match"];
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
@@ -23,7 +50,12 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setErrors(null);
+    setErrors({});
+
+    if (!validateForm()) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const response = await api.post("/register", formData);
@@ -31,9 +63,11 @@ export default function Register() {
       const token = response.data.token;
       if (token) {
         document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
+        localStorage.setItem("token", token);
+        router.push("/components/customer");
+      } else {
+        router.push("/login");
       }
-
-      router.push("/login");
     } catch (error) {
       if (error.response && error.response.status === 422) {
         setErrors(error.response.data.errors);
@@ -141,7 +175,11 @@ export default function Register() {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 hover:border-green-300"
+                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
+                    errors?.name
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                  }`}
                   placeholder="John Doe"
                 />
               </div>
@@ -166,7 +204,11 @@ export default function Register() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 hover:border-green-300"
+                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
+                    errors?.email
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                  }`}
                   placeholder="you@example.com"
                 />
               </div>
@@ -191,8 +233,12 @@ export default function Register() {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  className="w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 hover:border-green-300"
-                  placeholder="••••••••"
+                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
+                    errors?.password
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                  }`}
+                  placeholder="Enter your password"
                 />
               </div>
               {errors?.password && (
@@ -216,10 +262,19 @@ export default function Register() {
                   value={formData.password_confirmation}
                   onChange={handleChange}
                   required
-                  className="w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 hover:border-green-300"
+                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
+                    errors?.password_confirmation
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                  }`}
                   placeholder="••••••••"
                 />
               </div>
+              {errors?.password_confirmation && (
+                <p className="ml-1 text-sm text-red-400 font-medium">
+                  {errors.password_confirmation[0]}
+                </p>
+              )}
             </div>
 
             <button

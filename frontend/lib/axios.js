@@ -6,7 +6,7 @@ const api = axios.create({
     "X-Requested-With": "XMLHttpRequest",
     Accept: "application/json",
   },
-  withCredentials: true,
+  // withCredentials: true, // Not needed for Bearer token auth
 });
 
 api.interceptors.request.use((config) => {

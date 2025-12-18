@@ -10,12 +10,34 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState(null);
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!email.trim()) {
+      newErrors.email = ["Email is required"];
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = ["Email is invalid"];
+    }
+
+    if (!password) {
+      newErrors.password = ["Password is required"];
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setErrors(null);
+    setErrors({});
+
+    if (!validateForm()) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // CSRF protection if using Laravel Sanctum with cookies (often needed)
@@ -33,6 +55,7 @@ export default function Login() {
 
       if (token) {
         document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
+        localStorage.setItem("token", token);
       }
 
       router.push("/components/customer");
@@ -40,7 +63,7 @@ export default function Login() {
       if (error.response && error.response.status === 422) {
         setErrors(error.response.data.errors);
       } else {
-        setErrors({ general: ["Invalid credentials or server error."] });
+        setErrors({ general: ["Invalid credentials!"] });
       }
       console.error("Login Error:", error);
     } finally {
@@ -143,7 +166,11 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 hover:border-green-300"
+                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
+                    errors?.email
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                  }`}
                   placeholder="name@example.com"
                 />
               </div>
@@ -168,8 +195,12 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 hover:border-green-300"
-                  placeholder="••••••••"
+                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
+                    errors?.password
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                  }`}
+                  placeholder="Enter your password"
                 />
               </div>
               {errors?.password && (

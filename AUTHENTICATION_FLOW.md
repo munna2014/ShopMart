@@ -4,9 +4,9 @@
 
 This document details the complete flow of data for user registration, login, and session management using JWT Tokens (Sanctum) between the Frontend (Next.js) and Backend (Laravel).
 
-### 1. User Registration Flow (Adding User to Database)
+### 1. User Registration Flow (Email Verification Required)
 
-**Goal:** Create a new user in the MySQL database from the Next.js frontend.
+**Goal:** Create a new user in the MySQL database ONLY after email verification succeeds.
 
 #### **Step 1: Frontend Request (Next.js)**
 
@@ -36,28 +36,72 @@ Laravel receives the request at `routes/api.php`:
 Route::post('/register', [AuthController::class, 'register']);
 ```
 
-#### **Step 3: Database Insertion (Laravel Controller)**
+#### **Step 3: Pending User Creation (Laravel Controller)**
 
-The `AuthController` validates and creates the user in MySQL:
+The `AuthController` validates and creates a PENDING user (NOT in main users table):
 
 ```php
 // backend/app/Http/Controllers/AuthController.php
 public function register(Request $request) {
-    // 1. Validate Input
-    $fields = $request->validate([...]);
-
-    // 2. Insert into 'users' table in MySQL
-    $user = User::create([
-        'name' => $fields['name'],
-        'email' => $fields['email'],
-        'password' => bcrypt($fields['password']) // Password is hashed!
+    // 1. Validate Input (including unique email check in both users and pending_users)
+    $fields = $request->validate([
+        'email' => 'required|string|email|unique:users,email|unique:pending_users,email',
+        // ... other fields
     ]);
 
-    // 3. Create Token (Session)
+    // 2. Insert into 'pending_users' table (temporary storage)
+    $pendingUser = PendingUser::create([
+        'full_name' => $fields['name'],
+        'email' => $fields['email'],
+        'password_hash' => bcrypt($fields['password']),
+        'expires_at' => now()->addHours(24) // Expires in 24 hours
+    ]);
+
+    // 3. Generate and send OTP
+    $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    OtpCode::create([
+        'pending_user_id' => $pendingUser->id, // Linked to pending user
+        'code' => $otp,
+        'expires_at' => now()->addMinutes(10)
+    ]);
+
+    // 4. Send email with OTP
+    Mail::to($pendingUser->email)->send(new OtpEmail($otp, $pendingUser->full_name));
+
+    // 5. Return success (NO token yet, NO user in main table)
+    return response()->json([
+        'message' => 'Registration successful. Please check your email for verification code.',
+        'email' => $pendingUser->email,
+    ], 201);
+}
+```
+
+#### **Step 4: Email Verification (Critical Step)**
+
+User receives OTP via email and submits it through `/api/verify-otp`:
+
+```php
+public function verifyOtp(Request $request) {
+    // 1. Find pending user by email
+    $pendingUser = PendingUser::where('email', $request->email)->first();
+    
+    // 2. Validate OTP
+    $otpCode = OtpCode::where('pending_user_id', $pendingUser->id)
+        ->where('code', $request->code)
+        ->where('expires_at', '>', now())
+        ->first();
+
+    if (!$otpCode) {
+        return response()->json(['message' => 'Invalid or expired OTP'], 422);
+    }
+
+    // 3. ONLY NOW: Move to main users table
+    $user = $pendingUser->moveToUsers(); // Creates user in main table, deletes pending
+
+    // 4. Create session token
     $token = $user->createToken('myapptoken')->plainTextToken;
 
-    // 4. Return Data to Frontend
-    return response()->json(['user' => $user, 'token' => $token], 201);
+    return response()->json(['user' => $user, 'token' => $token], 200);
 }
 ```
 
@@ -151,14 +195,33 @@ Laravel intercepts the request (via `auth:sanctum` middleware):
 
 ### Database Diagram
 
-**Users Table (`users`)**
-| id | name | email | password (hashed) |
-|---|---|---|---|
-| 1 | John | john@ex.. | $2y$10$... |
+**Pending Users Table (`pending_users`)** - Temporary storage before verification
+| id | full_name | email | password_hash | expires_at |
+|---|---|---|---|---|
+| 1 | John | john@ex.. | $2y$10$... | 2024-12-19 12:00:00 |
 
-**Tokens Table (`personal_access_tokens`)**
+**Users Table (`users`)** - Only verified users
+| id | full_name | email | password_hash | is_active |
+|---|---|---|---|---|
+| 1 | Jane | jane@ex.. | $2y$10$... | true |
+
+**OTP Codes Table (`otp_codes`)**
+| id | user_id | pending_user_id | code | expires_at | used_at |
+|---|---|---|---|---|---|
+| 1 | null | 1 | 123456 | 2024-12-18 12:10:00 | null |
+| 2 | 1 | null | 654321 | 2024-12-18 12:15:00 | 2024-12-18 12:05:00 |
+
+**Tokens Table (`personal_access_tokens`)** - Only for verified users
 | id | tokenable_id (User ID) | token (hashed) | last_used_at |
 |---|---|---|---|
 | 5 | 1 | 8f3g9a... | 2024-12-17... |
 
-_The link between Next.js and MySQL is entirely managed via these secure Tokens._
+### Security Benefits
+
+1. **No Database Pollution**: Unverified users don't clutter the main users table
+2. **Automatic Cleanup**: Pending users expire after 24 hours
+3. **Email Verification Required**: Users MUST verify email before account creation
+4. **No Login Without Verification**: Login endpoint only checks main users table
+5. **Secure Token Generation**: Tokens only created after successful verification
+
+_The link between Next.js and MySQL is entirely managed via these secure Tokens, but ONLY after email verification._

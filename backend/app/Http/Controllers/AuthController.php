@@ -34,7 +34,7 @@ class AuthController extends Controller
                 'pending_user_id' => $pendingUser->id,
                 'code' => $otp,
                 'purpose' => 'GENERAL',
-                'expires_at' => now()->addMinutes(10)
+                'expires_at' => now()->addMinutes(2)
             ]);
 
             // Send OTP email
@@ -155,7 +155,7 @@ class AuthController extends Controller
                 'pending_user_id' => $pendingUser->id,
                 'code' => $otp,
                 'purpose' => 'GENERAL',
-                'expires_at' => now()->addMinutes(10)
+                'expires_at' => now()->addMinutes(2)
             ]);
 
             // Send OTP email
@@ -193,7 +193,7 @@ class AuthController extends Controller
             'user_id' => $user->id,
             'code' => $otp,
             'purpose' => 'GENERAL',
-            'expires_at' => now()->addMinutes(10)
+            'expires_at' => now()->addMinutes(2)
         ]);
 
         // Send OTP email
@@ -275,7 +275,7 @@ class AuthController extends Controller
             'user_id' => $user->id,
             'code' => $otp,
             'purpose' => 'PASSWORD_RESET',
-            'expires_at' => now()->addMinutes(10)
+            'expires_at' => now()->addMinutes(2)
         ]);
 
         // Send OTP email

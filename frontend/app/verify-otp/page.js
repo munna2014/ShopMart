@@ -14,7 +14,7 @@ export default function VerifyOTP() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [errors, setErrors] = useState({});
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes
   const inputRefs = useRef([]);
 
   // Redirect if no email

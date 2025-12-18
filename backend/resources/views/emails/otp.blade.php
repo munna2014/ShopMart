@@ -45,7 +45,7 @@
             <!-- Instructions -->
             <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; border-left: 4px solid #059669; margin: 30px 0;">
                 <p style="margin: 0; font-size: 14px; color: #065f46;">
-                    <strong>Important:</strong> This verification code will expire in 10 minutes for security reasons.
+                    <strong>Important:</strong> This verification code will expire in 2 minutes for security reasons.
                 </p>
             </div>
 

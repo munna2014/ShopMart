@@ -1,0 +1,97 @@
+version: '3.8'
+services:
+
+  # Backend (Laravel)
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: next-laravel-backend
+    container_name: next-laravel-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+    networks:
+      - app-network
+
+  # Web Server (Nginx)
+  webserver:
+    image: nginx:alpine
+    container_name: next-laravel-webserver
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www
+      - ./backend/docker/nginx/conf.d/:/etc/nginx/conf.d/
+    networks:
+      - app-network
+    depends_on:
+      - app
+
+  # Database (MySQL)
+  db:
+    image: mysql:8.0
+    container_name: next-laravel-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: Next-laravel
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_USER: ${DB_USERNAME:-laravel}
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    volumes:
+      - dbdata:/var/lib/mysql
+    ports:
+      - "3306:3306" # Expose only if needed locally
+    networks:
+      - app-network
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: next-laravel-frontend
+    container_name: next-laravel-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+    command: npm run dev
+    networks:
+      - app-network
+    depends_on:
+      - app
+
+  # Database Management (phpMyAdmin)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: next-laravel-pma
+    restart: always
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_User: laravel
+      PMA_PASSWORD: root
+    ports:
+      - "8081:80"
+    networks:
+      - app-network
+    depends_on:
+      - db
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local

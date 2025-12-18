@@ -212,7 +212,7 @@ export default function ResetPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300"
-                  placeholder="name@example.com"
+                  placeholder="Enter your email"
                 />
                 {errors?.email && (
                   <p className="ml-1 text-sm text-red-400 font-medium">

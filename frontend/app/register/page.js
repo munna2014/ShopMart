@@ -176,7 +176,7 @@ export default function Register() {
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
                   }`}
-                  placeholder="John Doe"
+                  placeholder="Enter your full name"
                 />
               </div>
               {errors?.name && (
@@ -205,7 +205,7 @@ export default function Register() {
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
                   }`}
-                  placeholder="you@example.com"
+                  placeholder="Enter your email"
                 />
               </div>
               {errors?.email && (

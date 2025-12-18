@@ -69,55 +69,9 @@ export default function CustomerView({ customer: initialCustomer }) {
     router.refresh();
   };
 
-  const recentOrders = [
-    {
-      id: "#ORD-2024-001",
-      date: "Dec 10, 2024",
-      status: "Delivered",
-      total: "$129.99",
-      items: 3,
-    },
-    {
-      id: "#ORD-2024-002",
-      date: "Dec 5, 2024",
-      status: "Shipped",
-      total: "$89.50",
-      items: 2,
-    },
-    {
-      id: "#ORD-2024-003",
-      date: "Nov 28, 2024",
-      status: "Delivered",
-      total: "$199.00",
-      items: 1,
-    },
-    {
-      id: "#ORD-2024-004",
-      date: "Nov 15, 2024",
-      status: "Delivered",
-      total: "$45.99",
-      items: 4,
-    },
-  ];
+  const recentOrders = [];
 
-  const addresses = [
-    {
-      type: "Home",
-      name: "John Doe",
-      address: "123 Main Street",
-      city: "New York, NY 10001",
-      phone: "+1 (555) 123-4567",
-      isDefault: true,
-    },
-    {
-      type: "Office",
-      name: "John Doe",
-      address: "456 Business Ave",
-      city: "New York, NY 10002",
-      phone: "+1 (555) 987-6543",
-      isDefault: false,
-    },
-  ];
+  const addresses = [];
 
   const products = [
     {

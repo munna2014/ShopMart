@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function HomeClient({ isLoggedIn }) {
   const router = useRouter();
+  const { logout } = useAuth();
   const [currentImageSet, setCurrentImageSet] = useState(0);
   const [mounted, setMounted] = useState(false);
 
@@ -46,9 +48,20 @@ export default function HomeClient({ isLoggedIn }) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSignOut = () => {
-    document.cookie = "token=; path=/; max-age=0";
-    router.refresh();
+  const handleSignOut = async () => {
+    try {
+      console.log("Home page: Starting logout process...");
+      await logout();
+      console.log("Home page: Logout completed, redirecting to home...");
+      router.push("/");
+      // Force page refresh to ensure clean state
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Home page: Logout process error:", error);
+      // Force logout even if there's an error
+      localStorage.removeItem("token");
+      window.location.href = "/";
+    }
   };
 
   if (!mounted) return null;

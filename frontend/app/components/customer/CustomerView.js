@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function CustomerView({ customer: initialCustomer }) {
   const router = useRouter();
+  const { logout } = useAuth();
   const [customer, setCustomer] = useState(initialCustomer);
 
   const [activeTab, setActiveTab] = useState("profile");
@@ -63,10 +65,20 @@ export default function CustomerView({ customer: initialCustomer }) {
       .toFixed(2);
   };
 
-  const handleSignOut = () => {
-    document.cookie = "token=; path=/; max-age=0";
-    router.push("/login");
-    router.refresh();
+  const handleSignOut = async () => {
+    try {
+      console.log("Customer page: Starting logout process...");
+      await logout();
+      console.log("Customer page: Logout completed, redirecting to home...");
+      router.push("/");
+      // Force page refresh to ensure clean state
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Customer page: Logout process error:", error);
+      // Force logout even if there's an error
+      localStorage.removeItem("token");
+      window.location.href = "/";
+    }
   };
 
   const recentOrders = [];

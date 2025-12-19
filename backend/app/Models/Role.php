@@ -21,9 +21,7 @@ class Role extends Model
      */
     public function users()
     {
-        return $this->belongsToMany(User::class, 'user_roles')
-            ->withPivot('assigned_at')
-            ->withTimestamps();
+        return $this->belongsToMany(User::class, 'user_roles');
     }
 
     /**
@@ -31,9 +29,7 @@ class Role extends Model
      */
     public function permissions()
     {
-        return $this->belongsToMany(Permission::class, 'role_permissions')
-            ->withPivot('granted_at')
-            ->withTimestamps();
+        return $this->belongsToMany(Permission::class, 'role_permissions');
     }
 
     /**

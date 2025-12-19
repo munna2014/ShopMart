@@ -1,38 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
 import CustomerView from "./CustomerView";
-import api from "@/lib/axios";
 
 export default function Page() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem("token");
-      
-      if (!token) {
+    if (!loading) {
+      if (!isAuthenticated) {
         router.push("/login");
-        return;
+      } else if (isAdmin()) {
+        // If admin tries to access customer page, redirect to admin
+        router.push("/components/admin");
       }
-
-      try {
-        const response = await api.get("/user");
-        setUser(response.data);
-      } catch (error) {
-        console.error("Failed to fetch user:", error);
-        localStorage.removeItem("token");
-        router.push("/login");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, [router]);
+    }
+  }, [loading, isAuthenticated, isAdmin, router]);
 
   if (loading) {
     return (
@@ -42,8 +28,12 @@ export default function Page() {
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated || !user) {
     return null; // Will redirect to login
+  }
+
+  if (isAdmin()) {
+    return null; // Will redirect to admin
   }
 
   // Format the join date if available, otherwise default

@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProductController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -37,23 +38,38 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 Route::group(['middleware' => ['auth:sanctum', 'admin']], function () {
     // Dashboard stats
     Route::get('/admin/dashboard', function (Request $request) {
-        $totalUsers = \App\Models\User::count();
-        $totalCustomers = \App\Models\User::whereHas('roles', function($query) {
-            $query->where('name', 'customer');
-        })->count();
+        $dashboardService = app(\App\Services\DashboardService::class);
+        $stats = $dashboardService->getDashboardStats();
+        $recentActivity = $dashboardService->getRecentActivity(5);
         
         return response()->json([
             'message' => 'Welcome to admin dashboard',
             'user' => $request->user(),
             'stats' => [
-                'total_users' => $totalUsers,
-                'total_customers' => $totalCustomers,
-                'total_orders' => 0, // Add when orders table is ready
-                'total_products' => 0, // Add when products table is ready
-                'revenue' => '$0.00', // Add when orders table is ready
-            ]
+                'total_users' => $stats['total_users'],
+                'total_customers' => $stats['total_customers'],
+                'total_orders' => $stats['total_orders'],
+                'total_products' => $stats['total_products'],
+                'revenue' => $stats['revenue_formatted'],
+                // Additional stats for enhanced dashboard
+                'active_products' => $stats['active_products'],
+                'in_stock_products' => $stats['in_stock_products'],
+                'out_of_stock_products' => $stats['out_of_stock_products'],
+                'pending_orders' => $stats['pending_orders'],
+                'completed_orders' => $stats['completed_orders'],
+                'monthly_revenue' => $stats['monthly_revenue_formatted'],
+                'user_growth_rate' => $stats['user_growth_rate'],
+                'recent_users' => $stats['recent_users'],
+                'recent_products' => $stats['recent_products'],
+            ],
+            'recent_activity' => $recentActivity,
+            'detailed_stats' => $stats // Full stats for advanced features
         ]);
     });
+    
+    // Product management routes
+    Route::apiResource('products', ProductController::class);
+    Route::get('/admin/products', [ProductController::class, 'adminIndex']);
     
     // Get all users/customers
     Route::get('/admin/users', function (Request $request) {
@@ -99,15 +115,13 @@ Route::group(['middleware' => ['auth:sanctum', 'admin']], function () {
 
 // Public routes for home page
 Route::get('/home/stats', function () {
-    $totalUsers = \App\Models\User::count();
-    $totalCustomers = \App\Models\User::whereHas('roles', function($query) {
-        $query->where('name', 'customer');
-    })->count();
+    $dashboardService = app(\App\Services\DashboardService::class);
+    $stats = $dashboardService->getDashboardStats();
     
     return response()->json([
-        'total_products' => 0, // Add when products table is ready
-        'total_customers' => $totalCustomers,
-        'total_orders' => 0, // Add when orders table is ready
+        'total_products' => $stats['total_products'],
+        'total_customers' => $stats['total_customers'],
+        'total_orders' => $stats['total_orders'],
     ]);
 });
 
@@ -136,9 +150,6 @@ Route::get('/categories', function () {
     return response()->json(['categories' => $categories]);
 });
 
-Route::get('/home/featured-products', function () {
-    // For now, return empty array until we have products table
-    return response()->json([
-        'products' => []
-    ]);
-});
+// Public product routes
+Route::get('/home/featured-products', [ProductController::class, 'featured']);
+Route::get('/customer/products', [ProductController::class, 'index']);

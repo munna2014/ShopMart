@@ -129,4 +129,26 @@ class User extends Authenticatable
             })
             ->exists();
     }
+
+    /**
+     * Assign a role to the user
+     */
+    public function assignRole(string $roleName): void
+    {
+        $role = Role::where('name', $roleName)->first();
+        if ($role && !$this->hasRole($roleName)) {
+            $this->roles()->attach($role);
+        }
+    }
+
+    /**
+     * Remove a role from the user
+     */
+    public function removeRole(string $roleName): void
+    {
+        $role = Role::where('name', $roleName)->first();
+        if ($role) {
+            $this->roles()->detach($role);
+        }
+    }
 }

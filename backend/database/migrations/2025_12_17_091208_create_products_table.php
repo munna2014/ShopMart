@@ -27,8 +27,10 @@ return new class extends Migration
             $table->index('category_id', 'idx_products_category');
         });
         
-        // Add fulltext index for name and description
-        DB::statement('ALTER TABLE products ADD FULLTEXT INDEX ft_products_name_desc (name, description)');
+        // Add fulltext index for name and description (MySQL only)
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE products ADD FULLTEXT INDEX ft_products_name_desc (name, description)');
+        }
     }
 
     /**

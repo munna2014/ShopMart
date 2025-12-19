@@ -59,9 +59,9 @@ export default function HomeClient() {
         api.get('/home/featured-products')
       ]);
       
-      setStats(statsRes.data);
-      setCategories(categoriesRes.data.categories);
-      setFeaturedProducts(productsRes.data.products);
+      setStats(statsRes.data || { total_products: 0, total_customers: 0, total_orders: 0 });
+      setCategories(categoriesRes.data.categories || []);
+      setFeaturedProducts(productsRes.data.products || []);
     } catch (error) {
       console.error('Error fetching home data:', error);
       // Set fallback data on error
@@ -457,8 +457,8 @@ export default function HomeClient() {
               <div className="col-span-full text-center py-12">
                 <div className="text-gray-500">
                   <svg
-                    className="w-12 h-12 mx-auto mb-4 text-gray-400"
-                    viewBox="0 0 24 24"
+                    className="w-10 h-10 mx-auto mb-4 text-gray-400"
+                    viewBox="0 0 18 18"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
@@ -477,7 +477,7 @@ export default function HomeClient() {
               featuredProducts.map((product, index) => (
               <div
                 key={index}
-                className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+                className="group bg-gray rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
               >
                 {product.badge && (
                   <div
@@ -491,31 +491,41 @@ export default function HomeClient() {
 
                 <div className="relative aspect-square overflow-hidden">
                   <img
-                    src={product.image}
+                    src={product.image || product.image_url || '/images/default-product.svg'}
                     alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="w-90 h-100 object-cover group-hover:scale-110 transition-transform duration-300"
+                    onError={(e) => {
+                      e.target.src = '/images/default-product.svg';
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                 </div>
 
                 <div className="p-6">
+                  <div className="mb-2">
+                    {product.category && (
+                      <span className="text-xs text-green-600 font-medium uppercase tracking-wide">
+                        {product.category}
+                      </span>
+                    )}
+                  </div>
                   <h4 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
                     {product.name}
                   </h4>
 
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex text-yellow-400">
-                      {"★".repeat(product.rating)}
-                      {"☆".repeat(5 - product.rating)}
+                      {"★".repeat(product.rating || 4)}
+                      {"☆".repeat(5 - (product.rating || 4))}
                     </div>
                     <span className="text-sm text-gray-500">
-                      ({product.reviews})
+                      ({product.reviews || '0'})
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 mb-4">
                     <span className="text-2xl font-bold text-gray-900">
-                      {product.price}
+                      {product.price || `$${parseFloat(product.price || 0).toFixed(2)}`}
                     </span>
                     {product.oldPrice && (
                       <span className="text-lg text-gray-400 line-through">
@@ -524,8 +534,26 @@ export default function HomeClient() {
                     )}
                   </div>
 
-                  <button className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all">
-                    Add to Cart
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm text-gray-600">
+                      {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                    </span>
+                    {product.inStock === false && (
+                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                        Out of Stock
+                      </span>
+                    )}
+                  </div>
+
+                  <button 
+                    className={`w-full py-3 rounded-xl font-semibold transition-all ${
+                      product.inStock !== false 
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg hover:scale-105' 
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                    disabled={product.inStock === false}
+                  >
+                    {/* {product.inStock !== false ? 'Add to Cart' : 'Out of Stock'} */}
                   </button>
                 </div>
               </div>

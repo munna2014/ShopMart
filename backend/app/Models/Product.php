@@ -155,9 +155,17 @@ class Product extends Model
      */
     public function scopeSearch($query, string $searchTerm)
     {
-        return $query->whereRaw(
-            "MATCH(name, description) AGAINST(? IN NATURAL LANGUAGE MODE)",
-            [$searchTerm]
-        );
+        // Use FULLTEXT search for MySQL, LIKE for other databases
+        if (config('database.default') === 'mysql') {
+            return $query->whereRaw(
+                "MATCH(name, description) AGAINST(? IN NATURAL LANGUAGE MODE)",
+                [$searchTerm]
+            );
+        } else {
+            return $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('description', 'LIKE', "%{$searchTerm}%");
+            });
+        }
     }
 }

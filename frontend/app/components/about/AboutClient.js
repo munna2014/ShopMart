@@ -3,14 +3,27 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function AboutClient({ isLoggedIn }) {
   const router = useRouter();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState("mission");
 
-  const handleSignOut = () => {
-    document.cookie = "token=; path=/; max-age=0";
-    router.refresh();
+  const handleSignOut = async () => {
+    try {
+      console.log("About page: Starting logout process...");
+      await logout();
+      console.log("About page: Logout completed, redirecting to home...");
+      router.push("/");
+      // Force page refresh to ensure clean state
+      window.location.href = "/";
+    } catch (error) {
+      console.error("About page: Logout process error:", error);
+      // Force logout even if there's an error
+      localStorage.removeItem("token");
+      window.location.href = "/";
+    }
   };
 
   return (

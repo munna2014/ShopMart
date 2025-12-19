@@ -9,8 +9,19 @@ export default function Navigation() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    await logout();
-    router.push("/");
+    try {
+      console.log("Starting logout process...");
+      await logout();
+      console.log("Logout completed, redirecting to home...");
+      router.push("/");
+      // Force page refresh to ensure clean state
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout process error:", error);
+      // Force logout even if there's an error
+      localStorage.removeItem("token");
+      window.location.href = "/";
+    }
   };
 
   return (

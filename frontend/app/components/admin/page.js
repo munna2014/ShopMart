@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import api from "@/lib/axios";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -14,21 +15,161 @@ export default function AdminDashboard() {
   const { user, loading, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
 
+  // Form state for adding products
+  const [productForm, setProductForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    stock_quantity: '',
+    category_id: '',
+    image: null
+  });
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      const response = await api.get('/admin/dashboard');
+      setStats({
+        totalProducts: response.data.stats.total_products,
+        totalCustomers: response.data.stats.total_customers,
+        totalOrders: response.data.stats.total_orders,
+        revenue: response.data.stats.revenue,
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
+
+  // Fetch customers data
+  const fetchCustomers = async () => {
+    try {
+      const response = await api.get('/admin/users');
+      setCustomers(response.data.users);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
+
+  // Fetch categories data
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories');
+      setCategories(response.data.categories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  // Fetch products data
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get('/admin/products');
+      setProducts(response.data.data.data || []); // Handle pagination structure
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setProducts([]);
+    }
+  };
+
+  // Fetch all data
+  const fetchAllData = async () => {
+    setDataLoading(true);
+    try {
+      await Promise.all([
+        fetchDashboardData(),
+        fetchCustomers(),
+        fetchCategories(),
+        fetchProducts(),
+      ]);
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
   // Check admin access on component mount
   useEffect(() => {
+    console.log("Admin page useEffect:", { 
+      loading, 
+      isAuthenticated, 
+      user: !!user, 
+      userRoles: user?.roles?.map(r => r.name),
+      isAdmin: user ? isAdmin() : 'unknown' 
+    });
+    
     if (!loading) {
-      if (!isAuthenticated) {
-        router.push("/login");
-      } else if (!isAdmin()) {
-        alert("Access denied. Admin privileges required.");
-        router.push("/login");
-      }
+      // Add a small delay to ensure auth state is stable after refresh
+      const checkAccess = () => {
+        // Only redirect if we're certain about the authentication state
+        if (!isAuthenticated) {
+          console.log("Not authenticated, redirecting to login");
+          router.push("/login");
+          return;
+        }
+        
+        // Wait for user data to be loaded before checking admin status
+        if (isAuthenticated && user) {
+          console.log("Checking admin status for user:", user.full_name, "Roles:", user.roles?.map(r => r.name));
+          
+          if (!isAdmin()) {
+            console.log("User is not admin, redirecting to login");
+            alert("Access denied. Admin privileges required.");
+            router.push("/login");
+            return;
+          }
+          
+          // User is authenticated and is admin, fetch data
+          console.log("User is authenticated admin, fetching data");
+          fetchAllData();
+        } else if (isAuthenticated && !user) {
+          console.log("Authenticated but user data not loaded yet, waiting...");
+          // Wait a bit more for user data to load
+          setTimeout(checkAccess, 500);
+        }
+      };
+      
+      // Small delay to ensure state is stable after refresh
+      setTimeout(checkAccess, 100);
     }
-  }, [loading, isAuthenticated, isAdmin, router]);
+  }, [loading, isAuthenticated, user, isAdmin, router]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type and size
+      const validTypes = ['image/png', 'image/jpg', 'image/jpeg'];
+      const maxSize = 10 * 1024 * 1024; // 10MB
+
+      if (!validTypes.includes(file.type)) {
+        setFormErrors(prev => ({
+          ...prev,
+          image: 'Please select a PNG or JPG image file'
+        }));
+        return;
+      }
+
+      if (file.size > maxSize) {
+        setFormErrors(prev => ({
+          ...prev,
+          image: 'Image file size must be less than 10MB'
+        }));
+        return;
+      }
+
+      // Clear image error if validation passes
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.image;
+        return newErrors;
+      });
+
+      // Set the file in form state
+      setProductForm(prev => ({ ...prev, image: file }));
+
+      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -37,62 +178,163 @@ export default function AdminDashboard() {
     }
   };
 
-  // Mock data
-  const stats = {
-    totalProducts: 156,
-    totalCustomers: 1247,
-    totalOrders: 892,
-    revenue: "$45,230",
-  };
-
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: "Wireless Headphones",
-      category: "Electronics",
-      price: "$199.99",
-      stock: 45,
-      status: "Active",
-    },
-    {
-      id: 2,
-      name: "Smart Watch",
-      category: "Electronics",
-      price: "$399.99",
-      stock: 23,
-      status: "Active",
-    },
-    {
-      id: 3,
-      name: "Designer Backpack",
-      category: "Fashion",
-      price: "$89.99",
-      stock: 67,
-      status: "Active",
-    },
-    {
-      id: 4,
-      name: "4K Camera",
-      category: "Electronics",
-      price: "$699.99",
-      stock: 12,
-      status: "Low Stock",
-    },
-  ]);
-
-  const [customers, setCustomers] = useState([]);
-
-  const [orders, setOrders] = useState([]);
-
-  const handleDeleteProduct = (id) => {
-    if (confirm("Are you sure you want to delete this product?")) {
-      setProducts(products.filter((p) => p.id !== id));
+  // Handle form input changes
+  const handleFormChange = (field, value) => {
+    setProductForm(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error for this field when user starts typing
+    if (formErrors[field]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
     }
   };
 
-  const handleDeleteCustomer = (id) => {
+  // Validate form
+  const validateForm = () => {
+    const errors = {};
+
+    if (!productForm.name.trim()) {
+      errors.name = 'Product name is required';
+    }
+
+    if (!productForm.category_id) {
+      errors.category_id = 'Please select a category';
+    }
+
+    if (!productForm.price || isNaN(productForm.price) || parseFloat(productForm.price) <= 0) {
+      errors.price = 'Please enter a valid price greater than 0';
+    }
+
+    if (productForm.stock_quantity === '' || isNaN(productForm.stock_quantity) || parseInt(productForm.stock_quantity) < 0) {
+      errors.stock_quantity = 'Please enter a valid stock quantity (0 or greater)';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form submission
+  const handleAddProduct = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      // Debug: Log form values before submission
+      console.log('Form values before submission:', {
+        name: productForm.name,
+        description: productForm.description,
+        price: productForm.price,
+        stock_quantity: productForm.stock_quantity,
+        category_id: productForm.category_id,
+        image: productForm.image ? productForm.image.name : 'No image'
+      });
+
+      const formData = new FormData();
+      formData.append('name', productForm.name.trim());
+      formData.append('description', productForm.description.trim());
+      formData.append('price', parseFloat(productForm.price));
+      formData.append('stock_quantity', parseInt(productForm.stock_quantity));
+      formData.append('category_id', productForm.category_id);
+      
+      if (productForm.image) {
+        formData.append('image', productForm.image);
+      }
+
+      const response = await api.post('/products', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.status === 'success') {
+        // Success - close modal and refresh data
+        alert('Product added successfully!');
+        closeModals();
+        resetForm();
+        fetchAllData(); // Refresh the data
+      } else {
+        throw new Error(response.data.message || 'Failed to add product');
+      }
+    } catch (error) {
+      console.error('Error adding product:', error);
+      
+      if (error.response?.data?.errors) {
+        // Handle validation errors from backend
+        setFormErrors(error.response.data.errors);
+      } else {
+        alert(error.response?.data?.message || 'Failed to add product. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Reset form
+  const resetForm = () => {
+    setProductForm({
+      name: '',
+      description: '',
+      price: '',
+      stock_quantity: '',
+      category_id: '',
+      image: null
+    });
+    setFormErrors({});
+    setImagePreview(null);
+  };
+
+  // State for real data
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    totalCustomers: 0,
+    totalOrders: 0,
+    revenue: "$0.00",
+  });
+
+  const [products, setProducts] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  const handleDeleteProduct = async (id) => {
+    if (confirm("Are you sure you want to delete this product?")) {
+      try {
+        await api.delete(`/products/${id}`);
+        // Remove from local state
+        setProducts(products.filter((p) => p.id !== id));
+        // Refresh dashboard stats
+        fetchDashboardData();
+        alert("Product deleted successfully");
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        alert(error.response?.data?.message || "Error deleting product");
+      }
+    }
+  };
+
+  const handleDeleteCustomer = async (id) => {
     if (confirm("Are you sure you want to remove this customer?")) {
-      setCustomers(customers.filter((c) => c.id !== id));
+      try {
+        await api.delete(`/admin/users/${id}`);
+        // Remove from local state
+        setCustomers(customers.filter((c) => c.id !== id));
+        // Update stats
+        setStats(prev => ({
+          ...prev,
+          totalCustomers: prev.totalCustomers - 1
+        }));
+        alert("Customer removed successfully");
+      } catch (error) {
+        console.error('Error deleting customer:', error);
+        alert(error.response?.data?.message || "Error removing customer");
+      }
     }
   };
 
@@ -114,11 +356,11 @@ export default function AdminDashboard() {
     setShowAddProduct(false);
     setShowEditProduct(false);
     setSelectedProduct(null);
-    setImagePreview(null);
+    resetForm();
   };
 
-  // Show loading spinner while checking admin access
-  if (loading) {
+  // Show loading spinner while checking admin access or loading data
+  if (loading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
@@ -126,9 +368,36 @@ export default function AdminDashboard() {
     );
   }
 
-  // Don't render anything if not authenticated or not admin (will redirect)
-  if (!isAuthenticated || !isAdmin()) {
+  // Show loading if authenticated but user data not loaded yet
+  if (isAuthenticated && !user) {
+    console.log("Showing loading: authenticated but no user data");
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    console.log("Not rendering: not authenticated");
     return null;
+  }
+
+  // Don't render anything if user is not admin (will redirect)
+  if (user && !isAdmin()) {
+    console.log("Not rendering: user is not admin");
+    return null;
+  }
+
+  // Only render if we have user data and user is admin
+  if (!user || !isAdmin()) {
+    console.log("Not rendering: waiting for user data or admin check");
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
+      </div>
+    );
   }
 
   return (
@@ -454,156 +723,144 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {products.map((product) => (
-                      <tr
-                        key={product.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {product.name}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {product.category}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {product.price}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {product.stock}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
-                              product.status === "Active"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
-                          >
-                            {product.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEditProduct(product)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            >
-                              <svg
-                                className="w-5 h-5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteProduct(product.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <svg
-                                className="w-5 h-5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Customers Tab */}
-          {activeTab === "customers" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-8">
-                Customers
-              </h2>
-
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Name
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Email
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Orders
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Total Spent
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Joined
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {customers.map((customer) => (
-                      <tr
-                        key={customer.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {customer.name}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {customer.email}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {customer.orders}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {customer.spent}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {customer.joined}
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => handleDeleteCustomer(customer.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
+                    {products.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-12 text-center">
+                          <div className="text-gray-500">
                             <svg
-                              className="w-5 h-5"
+                              className="w-12 h-12 mx-auto mb-4 text-gray-400"
                               viewBox="0 0 24 24"
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="2"
                             >
                               <path
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                               />
                             </svg>
-                          </button>
+                            <p className="text-lg font-medium">No products found</p>
+                            <p className="text-sm">Add your first product to get started</p>
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      products.map((product) => (
+                        <tr
+                          key={product.id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden">
+                                {product.image_url ? (
+                                  <img
+                                    src={product.image_url}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <svg
+                                      className="w-6 h-6 text-gray-400"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                    >
+                                      <path
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {product.name}
+                                </div>
+                                {product.description && (
+                                  <div className="text-xs text-gray-500 truncate max-w-xs">
+                                    {product.description}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {product.category?.name || 'No Category'}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                            ${parseFloat(product.price).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                              product.stock_quantity > 0 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {product.stock_quantity} in stock
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                                product.is_active
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {product.is_active ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditProduct(product)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit product"
+                              >
+                                <svg
+                                  className="w-5 h-5"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProduct(product.id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete product"
+                              >
+                                <svg
+                                  className="w-5 h-5"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1018,46 +1275,88 @@ export default function AdminDashboard() {
                     Choose File
                   </label>
                 </div>
+                {formErrors.image && (
+                  <p className="text-red-500 text-sm mt-2">{formErrors.image}</p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Product Name
+                  Product Name *
                 </label>
                 <input
                   type="text"
-                  className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                  value={productForm.name}
+                  onChange={(e) => handleFormChange('name', e.target.value)}
+                  className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none ${
+                    formErrors.name ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter product name"
                 />
+                {formErrors.name && (
+                  <p className="text-red-500 text-sm mt-1">{formErrors.name}</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category
+                    Category *
                   </label>
-                  <select className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none">
-                    <option>Electronics</option>
-                    <option>Fashion</option>
-                    <option>Home & Living</option>
+                  <select 
+                    value={productForm.category_id}
+                    onChange={(e) => handleFormChange('category_id', e.target.value)}
+                    className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none ${
+                      formErrors.category_id ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
+                  {formErrors.category_id && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.category_id}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price
+                    Price (USD) *
                   </label>
                   <input
-                    type="text"
-                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={productForm.price}
+                    onChange={(e) => handleFormChange('price', e.target.value)}
+                    className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none ${
+                      formErrors.price ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="0.00"
                   />
+                  {formErrors.price && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.price}</p>
+                  )}
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock Quantity
+                  Stock Quantity *
                 </label>
                 <input
                   type="number"
-                  className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                  min="0"
+                  value={productForm.stock_quantity}
+                  onChange={(e) => handleFormChange('stock_quantity', e.target.value)}
+                  className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none ${
+                    formErrors.stock_quantity ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="0"
                 />
+                {formErrors.stock_quantity && (
+                  <p className="text-red-500 text-sm mt-1">{formErrors.stock_quantity}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1065,22 +1364,37 @@ export default function AdminDashboard() {
                 </label>
                 <textarea
                   rows="4"
+                  value={productForm.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
                   className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                  placeholder="Enter product description (optional)"
                 ></textarea>
               </div>
             </div>
             <div className="p-6 border-t flex gap-3">
               <button
                 onClick={closeModals}
-                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+                disabled={isSubmitting}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
-                onClick={closeModals}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                onClick={handleAddProduct}
+                disabled={isSubmitting}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Add Product
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Adding...
+                  </>
+                ) : (
+                  'Add Product'
+                )}
               </button>
             </div>
           </div>
@@ -1185,9 +1499,12 @@ export default function AdminDashboard() {
                     defaultValue={selectedProduct.category}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
                   >
-                    <option>Electronics</option>
-                    <option>Fashion</option>
-                    <option>Home & Living</option>
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>

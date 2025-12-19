@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 
-export default function HomeClient({ isLoggedIn }) {
+export default function HomeClient() {
   const router = useRouter();
   const { logout, isAuthenticated, user, loading } = useAuth();
   const [currentImageSet, setCurrentImageSet] = useState(0);

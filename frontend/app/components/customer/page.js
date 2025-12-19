@@ -10,15 +10,25 @@ export default function Page() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log("Customer page useEffect:", { 
+      loading, 
+      isAuthenticated, 
+      user: !!user, 
+      isAdmin: user ? isAdmin() : 'unknown',
+      currentPath: window.location.pathname 
+    });
+    
     if (!loading) {
       if (!isAuthenticated) {
+        console.log("Customer page: Not authenticated, redirecting to login");
         router.push("/login");
-      } else if (isAdmin()) {
-        // If admin tries to access customer page, redirect to admin
+      } else if (isAuthenticated && user && isAdmin() && window.location.pathname === '/components/customer') {
+        // Only redirect if we have complete user data, user is admin, AND we're actually on customer page
+        console.log("Admin user accessing customer page, redirecting to admin dashboard");
         router.push("/components/admin");
       }
     }
-  }, [loading, isAuthenticated, isAdmin, router]);
+  }, [loading, isAuthenticated, user, isAdmin, router]);
 
   if (loading) {
     return (
@@ -32,7 +42,7 @@ export default function Page() {
     return null; // Will redirect to login
   }
 
-  if (isAdmin()) {
+  if (user && isAdmin()) {
     return null; // Will redirect to admin
   }
 

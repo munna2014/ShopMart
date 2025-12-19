@@ -57,18 +57,49 @@ export default function AdminDashboard() {
 
   // Check admin access on component mount
   useEffect(() => {
+    console.log("Admin page useEffect:", { 
+      loading, 
+      isAuthenticated, 
+      user: !!user, 
+      userRoles: user?.roles?.map(r => r.name),
+      isAdmin: user ? isAdmin() : 'unknown' 
+    });
+    
     if (!loading) {
-      if (!isAuthenticated) {
-        router.push("/login");
-      } else if (!isAdmin()) {
-        alert("Access denied. Admin privileges required.");
-        router.push("/login");
-      } else {
-        // User is authenticated and is admin, fetch data
-        fetchAllData();
-      }
+      // Add a small delay to ensure auth state is stable after refresh
+      const checkAccess = () => {
+        // Only redirect if we're certain about the authentication state
+        if (!isAuthenticated) {
+          console.log("Not authenticated, redirecting to login");
+          router.push("/login");
+          return;
+        }
+        
+        // Wait for user data to be loaded before checking admin status
+        if (isAuthenticated && user) {
+          console.log("Checking admin status for user:", user.full_name, "Roles:", user.roles?.map(r => r.name));
+          
+          if (!isAdmin()) {
+            console.log("User is not admin, redirecting to login");
+            alert("Access denied. Admin privileges required.");
+            router.push("/login");
+            return;
+          }
+          
+          // User is authenticated and is admin, fetch data
+          console.log("User is authenticated admin, fetching data");
+          fetchAllData();
+        } else if (isAuthenticated && !user) {
+          console.log("Authenticated but user data not loaded yet, waiting...");
+          // Wait a bit more for user data to load
+          setTimeout(checkAccess, 500);
+        }
+      };
+      
+      // Small delay to ensure state is stable after refresh
+      setTimeout(checkAccess, 100);
     }
-  }, [loading, isAuthenticated, isAdmin, router]);
+  }, [loading, isAuthenticated, user, isAdmin, router]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -149,9 +180,36 @@ export default function AdminDashboard() {
     );
   }
 
-  // Don't render anything if not authenticated or not admin (will redirect)
-  if (!isAuthenticated || !isAdmin()) {
+  // Show loading if authenticated but user data not loaded yet
+  if (isAuthenticated && !user) {
+    console.log("Showing loading: authenticated but no user data");
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    console.log("Not rendering: not authenticated");
     return null;
+  }
+
+  // Don't render anything if user is not admin (will redirect)
+  if (user && !isAdmin()) {
+    console.log("Not rendering: user is not admin");
+    return null;
+  }
+
+  // Only render if we have user data and user is admin
+  if (!user || !isAdmin()) {
+    console.log("Not rendering: waiting for user data or admin check");
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
+      </div>
+    );
   }
 
   return (

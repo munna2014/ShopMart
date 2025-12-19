@@ -19,12 +19,16 @@ export function AuthProvider({ children }) {
     const token = localStorage.getItem("token");
     
     if (!token) {
+      console.log("No token found, setting loading to false");
       setLoading(false);
       return;
     }
 
     try {
+      console.log("Checking auth with token...");
       const response = await api.get("/user");
+      console.log("Auth check successful, user data:", response.data);
+      console.log("User roles:", response.data.roles);
       setUser(response.data);
       setIsAuthenticated(true);
     } catch (error) {
@@ -96,6 +100,18 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
+    // During SSR or if provider is not available, return default values
+    if (typeof window === 'undefined') {
+      return {
+        user: null,
+        loading: true,
+        isAuthenticated: false,
+        login: async () => ({ success: false, error: "Not available during SSR" }),
+        logout: async () => {},
+        checkAuth: async () => {},
+        isAdmin: () => false,
+      };
+    }
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;

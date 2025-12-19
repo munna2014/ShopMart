@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import api from "@/lib/axios";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -14,6 +15,46 @@ export default function AdminDashboard() {
   const { user, loading, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
 
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      const response = await api.get('/admin/dashboard');
+      setStats({
+        totalProducts: response.data.stats.total_products,
+        totalCustomers: response.data.stats.total_customers,
+        totalOrders: response.data.stats.total_orders,
+        revenue: response.data.stats.revenue,
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
+
+  // Fetch customers data
+  const fetchCustomers = async () => {
+    try {
+      const response = await api.get('/admin/users');
+      setCustomers(response.data.users);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
+
+  // Fetch all data
+  const fetchAllData = async () => {
+    setDataLoading(true);
+    try {
+      await Promise.all([
+        fetchDashboardData(),
+        fetchCustomers(),
+      ]);
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
   // Check admin access on component mount
   useEffect(() => {
     if (!loading) {
@@ -22,6 +63,9 @@ export default function AdminDashboard() {
       } else if (!isAdmin()) {
         alert("Access denied. Admin privileges required.");
         router.push("/login");
+      } else {
+        // User is authenticated and is admin, fetch data
+        fetchAllData();
       }
     }
   }, [loading, isAuthenticated, isAdmin, router]);
@@ -37,52 +81,18 @@ export default function AdminDashboard() {
     }
   };
 
-  // Mock data
-  const stats = {
-    totalProducts: 156,
-    totalCustomers: 1247,
-    totalOrders: 892,
-    revenue: "$45,230",
-  };
+  // State for real data
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    totalCustomers: 0,
+    totalOrders: 0,
+    revenue: "$0.00",
+  });
 
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: "Wireless Headphones",
-      category: "Electronics",
-      price: "$199.99",
-      stock: 45,
-      status: "Active",
-    },
-    {
-      id: 2,
-      name: "Smart Watch",
-      category: "Electronics",
-      price: "$399.99",
-      stock: 23,
-      status: "Active",
-    },
-    {
-      id: 3,
-      name: "Designer Backpack",
-      category: "Fashion",
-      price: "$89.99",
-      stock: 67,
-      status: "Active",
-    },
-    {
-      id: 4,
-      name: "4K Camera",
-      category: "Electronics",
-      price: "$699.99",
-      stock: 12,
-      status: "Low Stock",
-    },
-  ]);
-
+  const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
-
   const [orders, setOrders] = useState([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
   const handleDeleteProduct = (id) => {
     if (confirm("Are you sure you want to delete this product?")) {
@@ -90,9 +100,22 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteCustomer = (id) => {
+  const handleDeleteCustomer = async (id) => {
     if (confirm("Are you sure you want to remove this customer?")) {
-      setCustomers(customers.filter((c) => c.id !== id));
+      try {
+        await api.delete(`/admin/users/${id}`);
+        // Remove from local state
+        setCustomers(customers.filter((c) => c.id !== id));
+        // Update stats
+        setStats(prev => ({
+          ...prev,
+          totalCustomers: prev.totalCustomers - 1
+        }));
+        alert("Customer removed successfully");
+      } catch (error) {
+        console.error('Error deleting customer:', error);
+        alert(error.response?.data?.message || "Error removing customer");
+      }
     }
   };
 
@@ -117,8 +140,8 @@ export default function AdminDashboard() {
     setImagePreview(null);
   };
 
-  // Show loading spinner while checking admin access
-  if (loading) {
+  // Show loading spinner while checking admin access or loading data
+  if (loading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
@@ -521,86 +544,6 @@ export default function AdminDashboard() {
                               </svg>
                             </button>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Customers Tab */}
-          {activeTab === "customers" && (
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-8">
-                Customers
-              </h2>
-
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Name
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Email
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Orders
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Total Spent
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Joined
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {customers.map((customer) => (
-                      <tr
-                        key={customer.id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {customer.name}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {customer.email}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {customer.orders}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {customer.spent}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {customer.joined}
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => handleDeleteCustomer(customer.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <svg
-                              className="w-5 h-5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
                         </td>
                       </tr>
                     ))}

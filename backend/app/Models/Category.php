@@ -9,16 +9,20 @@ class Category extends Model
 {
     use HasFactory;
 
-    public $timestamps = false;
-
     protected $fillable = [
         'name',
+        'slug',
         'description',
-        'parent_id',
+        'icon',
+        'color',
+        'is_active',
+        'sort_order',
     ];
 
     protected $casts = [
+        'is_active' => 'boolean',
         'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     /**

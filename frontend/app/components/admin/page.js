@@ -40,6 +40,16 @@ export default function AdminDashboard() {
     }
   };
 
+  // Fetch categories data
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories');
+      setCategories(response.data.categories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
   // Fetch all data
   const fetchAllData = async () => {
     setDataLoading(true);
@@ -47,6 +57,7 @@ export default function AdminDashboard() {
       await Promise.all([
         fetchDashboardData(),
         fetchCustomers(),
+        fetchCategories(),
       ]);
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -123,6 +134,7 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   const handleDeleteProduct = (id) => {
@@ -1036,9 +1048,12 @@ export default function AdminDashboard() {
                     Category
                   </label>
                   <select className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none">
-                    <option>Electronics</option>
-                    <option>Fashion</option>
-                    <option>Home & Living</option>
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1186,9 +1201,12 @@ export default function AdminDashboard() {
                     defaultValue={selectedProduct.category}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
                   >
-                    <option>Electronics</option>
-                    <option>Fashion</option>
-                    <option>Home & Living</option>
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>

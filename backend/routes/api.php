@@ -112,47 +112,28 @@ Route::get('/home/stats', function () {
 });
 
 Route::get('/home/categories', function () {
-    // For now, return static categories until we have a categories table
-    return response()->json([
-        'categories' => [
-            [
-                'name' => 'Electronics',
-                'count' => 0,
-                'icon' => 'M2 7h20M2 7v13a2 2 0 002 2h16a2 2 0 002-2V7M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16',
-                'color' => 'from-purple-500 to-purple-600',
-            ],
-            [
-                'name' => 'Fashion',
-                'count' => 0,
-                'icon' => 'M20.59 13.41L13.42 20.58a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01',
-                'color' => 'from-blue-500 to-blue-600',
-            ],
-            [
-                'name' => 'Home & Living',
-                'count' => 0,
-                'icon' => 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM9 22V12h6v10',
-                'color' => 'from-green-500 to-green-600',
-            ],
-            [
-                'name' => 'Sports & Outdoors',
-                'count' => 0,
-                'icon' => 'M9 21a1 1 0 100-2 1 1 0 000 2zM20 21a1 1 0 100-2 1 1 0 000 2zM1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6',
-                'color' => 'from-orange-500 to-orange-600',
-            ],
-            [
-                'name' => 'Beauty & Health',
-                'count' => 0,
-                'icon' => 'M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z',
-                'color' => 'from-pink-500 to-pink-600',
-            ],
-            [
-                'name' => 'Books & Media',
-                'count' => 0,
-                'icon' => 'M2 7h20M2 7v15h20V7M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16M6 11h12M6 15h12',
-                'color' => 'from-teal-500 to-teal-600',
-            ],
-        ]
-    ]);
+    $categories = \App\Models\Category::where('is_active', true)
+        ->orderBy('sort_order')
+        ->get()
+        ->map(function($category) {
+            return [
+                'name' => $category->name,
+                'count' => 0, // TODO: Add product count when products table is ready
+                'icon' => $category->icon,
+                'color' => $category->color,
+            ];
+        });
+    
+    return response()->json(['categories' => $categories]);
+});
+
+// Categories API for admin
+Route::get('/categories', function () {
+    $categories = \App\Models\Category::where('is_active', true)
+        ->orderBy('sort_order')
+        ->get();
+    
+    return response()->json(['categories' => $categories]);
 });
 
 Route::get('/home/featured-products', function () {

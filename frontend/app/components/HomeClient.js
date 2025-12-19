@@ -8,7 +8,7 @@ import api from "@/lib/axios";
 
 export default function HomeClient({ isLoggedIn }) {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, isAuthenticated, user, loading } = useAuth();
   const [currentImageSet, setCurrentImageSet] = useState(0);
   const [mounted, setMounted] = useState(false);
   
@@ -90,15 +90,15 @@ export default function HomeClient({ isLoggedIn }) {
     try {
       console.log("Home page: Starting logout process...");
       await logout();
-      console.log("Home page: Logout completed, redirecting to home...");
-      router.push("/");
-      // Force page refresh to ensure clean state
-      window.location.href = "/";
+      console.log("Home page: Logout completed successfully");
+      // No need to redirect since we're already on home page
+      // The AuthContext will update isAuthenticated state automatically
     } catch (error) {
       console.error("Home page: Logout process error:", error);
       // Force logout even if there's an error
       localStorage.removeItem("token");
-      window.location.href = "/";
+      // Force page refresh as fallback
+      window.location.reload();
     }
   };
 
@@ -156,7 +156,13 @@ export default function HomeClient({ isLoggedIn }) {
 
             {/* Right Side - Auth Buttons */}
             <div className="flex items-center gap-4">
-              {isLoggedIn ? (
+              {loading ? (
+                // Loading state
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-8 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="w-20 h-10 bg-gray-200 rounded-xl animate-pulse"></div>
+                </div>
+              ) : isAuthenticated ? (
                 <>
                   <Link
                     href="/components/customer"

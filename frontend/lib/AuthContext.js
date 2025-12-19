@@ -57,13 +57,18 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
+      // Call logout API to invalidate token on server
       await api.post("/logout");
+      console.log("Logout API call successful");
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error("Logout API error:", error);
+      // Continue with logout even if API call fails
     } finally {
+      // Always clear local state regardless of API call result
       localStorage.removeItem("token");
       setUser(null);
       setIsAuthenticated(false);
+      console.log("Local logout completed - token removed, state cleared");
     }
   };
 

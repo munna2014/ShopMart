@@ -82,65 +82,8 @@ export default function CustomerView({ customer: initialCustomer }) {
   };
 
   const recentOrders = [];
-
   const addresses = [];
-
-  const products = [
-    {
-      id: 1,
-      name: "Wireless Headphones",
-      category: "Electronics",
-      price: "$199.99",
-      image:
-        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop",
-      rating: 4.5,
-    },
-    {
-      id: 2,
-      name: "Smart Watch",
-      category: "Electronics",
-      price: "$399.99",
-      image:
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop",
-      rating: 4.8,
-    },
-    {
-      id: 3,
-      name: "Designer Backpack",
-      category: "Fashion",
-      price: "$89.99",
-      image:
-        "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=400&fit=crop",
-      rating: 4.3,
-    },
-    {
-      id: 4,
-      name: "4K Camera",
-      category: "Electronics",
-      price: "$699.99",
-      image:
-        "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=400&fit=crop",
-      rating: 4.7,
-    },
-    {
-      id: 5,
-      name: "Running Shoes",
-      category: "Fashion",
-      price: "$129.99",
-      image:
-        "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop",
-      rating: 4.6,
-    },
-    {
-      id: 6,
-      name: "Laptop Stand",
-      category: "Electronics",
-      price: "$49.99",
-      image:
-        "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=400&h=400&fit=crop",
-      rating: 4.4,
-    },
-  ];
+  const products = []; // Will be populated from API when products table is ready
 
   return (
     <div className="min-h-screen bg-gray-50">

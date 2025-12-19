@@ -4,12 +4,23 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import api from "@/lib/axios";
 
 export default function HomeClient({ isLoggedIn }) {
   const router = useRouter();
   const { logout } = useAuth();
   const [currentImageSet, setCurrentImageSet] = useState(0);
   const [mounted, setMounted] = useState(false);
+  
+  // State for real data
+  const [stats, setStats] = useState({
+    total_products: 0,
+    total_customers: 0,
+    total_orders: 0,
+  });
+  const [categories, setCategories] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
   // Image sets for rotation
   const imageSets = [
@@ -36,8 +47,35 @@ export default function HomeClient({ isLoggedIn }) {
     ],
   ];
 
+  // Fetch home page data
+  const fetchHomeData = async () => {
+    try {
+      setDataLoading(true);
+      
+      // Fetch stats, categories, and featured products
+      const [statsRes, categoriesRes, productsRes] = await Promise.all([
+        api.get('/home/stats'),
+        api.get('/home/categories'),
+        api.get('/home/featured-products')
+      ]);
+      
+      setStats(statsRes.data);
+      setCategories(categoriesRes.data.categories);
+      setFeaturedProducts(productsRes.data.products);
+    } catch (error) {
+      console.error('Error fetching home data:', error);
+      // Set fallback data on error
+      setStats({ total_products: 0, total_customers: 0, total_orders: 0 });
+      setCategories([]);
+      setFeaturedProducts([]);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
+    fetchHomeData();
   }, []);
 
   // Rotate images every 3 seconds
@@ -273,12 +311,16 @@ export default function HomeClient({ isLoggedIn }) {
             {/* Stats */}
             <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">50k+</div>
+                <div className="text-3xl font-bold text-gray-900">
+                  {dataLoading ? "..." : stats.total_products || "0"}
+                </div>
                 <div className="text-sm text-gray-600 mt-1">Products</div>
               </div>
               <div className="hidden sm:block w-px h-12 bg-gray-300"></div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">1M+</div>
+                <div className="text-3xl font-bold text-gray-900">
+                  {dataLoading ? "..." : stats.total_customers || "0"}
+                </div>
                 <div className="text-sm text-gray-600 mt-1">
                   Happy Customers
                 </div>
@@ -308,44 +350,40 @@ export default function HomeClient({ isLoggedIn }) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[
-              {
-                name: "Electronics",
-                count: "2,500+",
-                icon: "M2 7h20M2 7v13a2 2 0 002 2h16a2 2 0 002-2V7M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16",
-                color: "from-purple-500 to-purple-600",
-              },
-              {
-                name: "Fashion",
-                count: "5,000+",
-                icon: "M20.59 13.41L13.42 20.58a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01",
-                color: "from-blue-500 to-blue-600",
-              },
-              {
-                name: "Home & Living",
-                count: "3,200+",
-                icon: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM9 22V12h6v10",
-                color: "from-green-500 to-green-600",
-              },
-              {
-                name: "Sports & Outdoors",
-                count: "1,800+",
-                icon: "M9 21a1 1 0 100-2 1 1 0 000 2zM20 21a1 1 0 100-2 1 1 0 000 2zM1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6",
-                color: "from-orange-500 to-orange-600",
-              },
-              {
-                name: "Beauty & Health",
-                count: "2,100+",
-                icon: "M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z",
-                color: "from-pink-500 to-pink-600",
-              },
-              {
-                name: "Books & Media",
-                count: "4,500+",
-                icon: "M2 7h20M2 7v15h20V7M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16M6 11h12M6 15h12",
-                color: "from-teal-500 to-teal-600",
-              },
-            ].map((category, index) => (
+            {dataLoading ? (
+              // Loading skeleton
+              Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 animate-pulse"
+                >
+                  <div className="w-16 h-16 bg-gray-200 rounded-xl mb-6"></div>
+                  <div className="h-6 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-20"></div>
+                </div>
+              ))
+            ) : categories.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <div className="text-gray-500">
+                  <svg
+                    className="w-12 h-12 mx-auto mb-4 text-gray-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <p className="text-lg font-medium">No categories available</p>
+                  <p className="text-sm">Categories will appear here once added</p>
+                </div>
+              </div>
+            ) : (
+              categories.map((category, index) => (
               <div
                 key={index}
                 className="group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer border border-gray-100"
@@ -371,10 +409,11 @@ export default function HomeClient({ isLoggedIn }) {
                   {category.name}
                 </h3>
                 <p className="text-gray-600 font-medium">
-                  {category.count} items
+                  {category.count || 0} items
                 </p>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -392,42 +431,44 @@ export default function HomeClient({ isLoggedIn }) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[
-              {
-                name: "Premium Wireless Headphones",
-                price: "$199.99",
-                oldPrice: "$299.99",
-                rating: 5,
-                reviews: 128,
-                image:
-                  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop",
-              },
-              {
-                name: "Smart Watch Series 8",
-                price: "$399.99",
-                rating: 5,
-                reviews: 95,
-                image:
-                  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop",
-              },
-              {
-                name: "Designer Backpack",
-                price: "$89.99",
-                rating: 4,
-                reviews: 67,
-                image:
-                  "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=400&fit=crop",
-              },
-              {
-                name: "4K Ultra HD Camera",
-                price: "$699.99",
-                oldPrice: "$999.99",
-                rating: 5,
-                reviews: 203,
-                image:
-                  "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=400&fit=crop",
-              },
-            ].map((product, index) => (
+            {dataLoading ? (
+              // Loading skeleton for products
+              Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="bg-white rounded-2xl overflow-hidden shadow-lg animate-pulse"
+                >
+                  <div className="aspect-square bg-gray-200"></div>
+                  <div className="p-6">
+                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
+                    <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="h-10 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              ))
+            ) : featuredProducts.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <div className="text-gray-500">
+                  <svg
+                    className="w-12 h-12 mx-auto mb-4 text-gray-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <p className="text-lg font-medium">No featured products available</p>
+                  <p className="text-sm">Featured products will appear here once added</p>
+                </div>
+              </div>
+            ) : (
+              featuredProducts.map((product, index) => (
               <div
                 key={index}
                 className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
@@ -482,7 +523,8 @@ export default function HomeClient({ isLoggedIn }) {
                   </button>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
 
           <div className="mt-12 text-center">

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -9,6 +11,20 @@ export default function AdminDashboard() {
   const [showEditProduct, setShowEditProduct] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const { user, loading, isAuthenticated, isAdmin } = useAuth();
+  const router = useRouter();
+
+  // Check admin access on component mount
+  useEffect(() => {
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.push("/login");
+      } else if (!isAdmin()) {
+        alert("Access denied. Admin privileges required.");
+        router.push("/login");
+      }
+    }
+  }, [loading, isAuthenticated, isAdmin, router]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -100,6 +116,20 @@ export default function AdminDashboard() {
     setSelectedProduct(null);
     setImagePreview(null);
   };
+
+  // Show loading spinner while checking admin access
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated or not admin (will redirect)
+  if (!isAuthenticated || !isAdmin()) {
+    return null;
+  }
 
   return (
     <>

@@ -21,8 +21,6 @@ class Permission extends Model
      */
     public function roles()
     {
-        return $this->belongsToMany(Role::class, 'role_permissions')
-            ->withPivot('granted_at')
-            ->withTimestamps();
+        return $this->belongsToMany(Role::class, 'role_permissions');
     }
 }

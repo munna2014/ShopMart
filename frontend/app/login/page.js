@@ -1,17 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import api from "@/lib/axios";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function Login() {
   const router = useRouter();
+  const { login: authLogin, isAuthenticated, isAdmin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (isAdmin()) {
+        router.push("/components/admin");
+      } else {
+        router.push("/components/customer");
+      }
+    }
+  }, [isAuthenticated, router, isAdmin]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -41,32 +53,26 @@ export default function Login() {
     }
 
     try {
-      // CSRF protection if using Laravel Sanctum with cookies (often needed)
-      // await api.get('/sanctum/csrf-cookie');
-      // But we are using token based auth likely based on axios.js looking for 'token' in localStorage
+      const result = await authLogin(email, password);
+      
+      if (result.success) {
+        // Store cookie if remember me is checked
+        if (rememberMe) {
+          const maxAge = 2592000; // 30 days
+          document.cookie = `token=${localStorage.getItem("token")}; path=/; max-age=${maxAge}; SameSite=Lax`;
+        }
 
-      const response = await api.post("/login", { email, password });
-
-      // Assuming response contains token. If Laravel Sanctum stateful, it sets 'laravel_session' cookie.
-      // But typically for API token auth, we get a token back.
-      // Adjust based on typical Laravel API resource response.
-      // Often keys are data.token or just token.
-
-      const token = response.data.token;
-      if (token) {
-        // Expiration: 1 day if not remembered, 30 days if remembered
-        const maxAge = rememberMe ? 2592000 : 86400;
-        document.cookie = `token=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-        localStorage.setItem("token", token);
-      }
-
-      router.push("/components/customer");
-    } catch (error) {
-      if (error.response && error.response.status === 422) {
-        setErrors(error.response.data.errors);
+        // Redirect based on user role
+        if (result.user.roles?.some(role => role.name === 'admin')) {
+          router.push("/components/admin");
+        } else {
+          router.push("/components/customer");
+        }
       } else {
-        setErrors({ general: ["Invalid credentials!"] });
+        setErrors({ general: [result.error] });
       }
+    } catch (error) {
+      setErrors({ general: ["Login failed. Please try again."] });
       console.error("Login Error:", error);
     } finally {
       setLoading(false);

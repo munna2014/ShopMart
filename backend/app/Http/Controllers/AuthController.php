@@ -89,6 +89,12 @@ class AuthController extends Controller
             // Move pending user to main users table
             $user = $pendingUser->moveToUsers();
             
+            // Assign customer role to new user
+            $customerRole = \App\Models\Role::where('name', 'customer')->first();
+            if ($customerRole) {
+                $user->roles()->syncWithoutDetaching([$customerRole->id]);
+            }
+            
             $token = $user->createToken('myapptoken')->plainTextToken;
 
             return response()->json([
@@ -234,6 +240,9 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('myapptoken')->plainTextToken;
+
+        // Load user with roles
+        $user->load('roles');
 
         return response()->json([
             'user' => $user,

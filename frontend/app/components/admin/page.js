@@ -73,6 +73,59 @@ export default function AdminDashboard() {
     }
   };
 
+  const mapOrderStatus = (status) => {
+    if (status === "PENDING") return "Pending";
+    if (status === "DELIVERED") return "Delivered";
+    if (status === "SHIPPED") return "Shipped";
+    if (status === "PAID") return "Processing";
+    if (status === "CANCELLED") return "Cancelled";
+    return status || "Processing";
+  };
+
+  const mapStatusToApi = (status) => {
+    if (status === "Pending") return "PENDING";
+    if (status === "Processing") return "PAID";
+    if (status === "Shipped") return "SHIPPED";
+    if (status === "Delivered") return "DELIVERED";
+    if (status === "Cancelled") return "CANCELLED";
+    return "PENDING";
+  };
+
+  // Fetch orders data
+  const fetchOrders = async () => {
+    try {
+      const response = await api.get('/admin/orders');
+      const mappedOrders = (response.data.orders || []).map((order) => {
+        const orderDate = order.created_at
+          ? new Date(order.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "2-digit",
+              year: "numeric",
+            })
+          : "N/A";
+
+        return {
+          id: order.id,
+          orderId: `#ORD-${String(order.id).padStart(5, "0")}`,
+          customer: order.user?.full_name || "Customer",
+          customerEmail: order.user?.email || "",
+          date: orderDate,
+          total: `$${Number(order.total_amount || 0).toFixed(2)}`,
+          status: mapOrderStatus(order.status),
+          products: (order.items || []).map((item) => ({
+            name: item.product?.name || "Product",
+            quantity: item.quantity,
+            price: `$${Number(item.unit_price || 0).toFixed(2)}`,
+          })),
+        };
+      });
+      setOrders(mappedOrders);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setOrders([]);
+    }
+  };
+
   // Fetch all data
   const fetchAllData = async () => {
     setDataLoading(true);
@@ -82,6 +135,7 @@ export default function AdminDashboard() {
         fetchCustomers(),
         fetchCategories(),
         fetchProducts(),
+        fetchOrders(),
       ]);
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -344,12 +398,19 @@ export default function AdminDashboard() {
     setImagePreview(null);
   };
 
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
-    setOrders(
-      orders.map((order) =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    );
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const apiStatus = mapStatusToApi(newStatus);
+      await api.patch(`/admin/orders/${orderId}/status`, { status: apiStatus });
+      setOrders(
+        orders.map((order) =>
+          order.id === orderId ? { ...order, status: newStatus } : order
+        )
+      );
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      alert(error.response?.data?.message || "Failed to update order status");
+    }
   };
 
   const closeModals = () => {
@@ -916,6 +977,8 @@ export default function AdminDashboard() {
                                 ? "bg-green-100 text-green-800"
                                 : order.status === "Shipped"
                                 ? "bg-blue-100 text-blue-800"
+                                : order.status === "Pending"
+                                ? "bg-gray-100 text-gray-800"
                                 : "bg-yellow-100 text-yellow-800"
                             }`}
                           >
@@ -1037,6 +1100,8 @@ export default function AdminDashboard() {
                                 ? "bg-blue-100 text-black"
                                 : order.status === "Processing"
                                 ? "bg-yellow-100 text-black"
+                                : order.status === "Pending"
+                                ? "bg-gray-100 text-black"
                                 : "bg-gray-100 text-black"
                             }`}
                           >

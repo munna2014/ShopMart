@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\OrderController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -44,6 +45,10 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::put('/profile/password', [ProfileController::class, 'updatePassword']);
     Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar']);
     Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar']);
+
+    // Orders
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
 });
 
 // Admin-only routes
@@ -82,13 +87,30 @@ Route::group(['middleware' => ['auth:sanctum', 'admin']], function () {
     // Product management routes
     Route::apiResource('products', ProductController::class);
     Route::get('/admin/products', [ProductController::class, 'adminIndex']);
+
+    // Orders management
+    Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
+    Route::patch('/admin/orders/{id}/status', [OrderController::class, 'updateStatus']);
     
     // Get all users/customers
     Route::get('/admin/users', function (Request $request) {
+        $ordersSummary = [];
+        if (\Illuminate\Support\Facades\Schema::hasTable('orders')) {
+            $ordersSummary = \Illuminate\Support\Facades\DB::table('orders')
+                ->selectRaw('user_id, COUNT(*) as orders_count, COALESCE(SUM(total_amount), 0) as total_spent')
+                ->groupBy('user_id')
+                ->get()
+                ->keyBy('user_id');
+        }
+
         $users = \App\Models\User::with('roles')
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function($user) {
+            ->map(function($user) use ($ordersSummary) {
+                $summary = $ordersSummary[$user->id] ?? null;
+                $ordersCount = $summary ? (int) $summary->orders_count : 0;
+                $totalSpent = $summary ? (float) $summary->total_spent : 0.0;
+
                 return [
                     'id' => $user->id,
                     'name' => $user->full_name,
@@ -97,8 +119,8 @@ Route::group(['middleware' => ['auth:sanctum', 'admin']], function () {
                     'is_active' => $user->is_active,
                     'created_at' => $user->created_at,
                     'joined' => $user->created_at->format('M d, Y'),
-                    'orders' => 0, // Add when orders table is ready
-                    'spent' => '$0.00', // Add when orders table is ready
+                    'orders' => $ordersCount,
+                    'spent' => '$' . number_format($totalSpent, 2),
                 ];
             });
         

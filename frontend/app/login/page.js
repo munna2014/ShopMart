@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function Login() {
   const router = useRouter();
@@ -196,26 +197,19 @@ export default function Login() {
               >
                 Password
               </label>
-              <div className="relative group">
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
-                    errors?.password
-                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
-                  }`}
-                  placeholder="Enter your password"
-                />
-              </div>
-              {errors?.password && (
-                <p className="ml-1 text-sm text-red-400 font-medium">
-                  {errors.password[0]}
-                </p>
-              )}
+              <PasswordInput
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className={`px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
+                  errors?.password
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                    : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                }`}
+                placeholder="Enter your password"
+                error={errors?.password?.[0]}
+              />
             </div>
 
             <div className="flex items-center justify-between px-1">

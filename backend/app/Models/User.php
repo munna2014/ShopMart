@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -20,6 +21,9 @@ class User extends Authenticatable
         'email',
         'password_hash',
         'full_name',
+        'phone',
+        'date_of_birth',
+        'avatar',
         'is_active',
         'last_login_at',
     ];
@@ -41,9 +45,17 @@ class User extends Authenticatable
     protected $casts = [
         'is_active' => 'boolean',
         'last_login_at' => 'datetime',
+        'date_of_birth' => 'date:Y-m-d',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['avatar_url'];
 
     /**
      * Get the password for authentication.
@@ -111,6 +123,22 @@ class User extends Authenticatable
     }
 
     /**
+     * User addresses relationship
+     */
+    public function addresses()
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    /**
+     * Get default address
+     */
+    public function defaultAddress()
+    {
+        return $this->hasOne(UserAddress::class)->where('is_default', true);
+    }
+
+    /**
      * Check if user has a specific role
      */
     public function hasRole(string $roleName): bool
@@ -150,5 +178,16 @@ class User extends Authenticatable
         if ($role) {
             $this->roles()->detach($role);
         }
+    }
+
+    /**
+     * Get the full avatar URL
+     */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if ($this->avatar) {
+            return url('storage/' . $this->avatar);
+        }
+        return null;
     }
 }

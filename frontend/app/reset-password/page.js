@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/axios";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -282,24 +283,19 @@ export default function ResetPassword() {
                 >
                   New Password
                 </label>
-                <input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
+                  className={`px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
                     errors?.password
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400"
                   }`}
                   placeholder="Enter new password"
+                  error={errors?.password?.[0]}
                 />
-                {errors?.password && (
-                  <p className="ml-1 text-sm text-red-400 font-medium">
-                    {errors.password[0]}
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -309,24 +305,19 @@ export default function ResetPassword() {
                 >
                   Confirm New Password
                 </label>
-                <input
+                <PasswordInput
                   id="password_confirmation"
-                  type="password"
                   value={passwordConfirmation}
                   onChange={(e) => setPasswordConfirmation(e.target.value)}
                   required
-                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
+                  className={`px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
                     errors?.password_confirmation
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400"
                   }`}
                   placeholder="Confirm new password"
+                  error={errors?.password_confirmation?.[0]}
                 />
-                {errors?.password_confirmation && (
-                  <p className="ml-1 text-sm text-red-400 font-medium">
-                    {errors.password_confirmation[0]}
-                  </p>
-                )}
               </div>
 
               <button

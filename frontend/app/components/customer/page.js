@@ -59,7 +59,8 @@ export default function Page() {
     name: user.full_name || user.name || "Customer",
     email: user.email,
     phone: user.phone || "",
-    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    date_of_birth: user.date_of_birth || "",
+    avatar: user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(
       user.full_name || user.name || "Customer"
     )}&size=200&background=059669&color=fff`,
     joinDate: joinDate,

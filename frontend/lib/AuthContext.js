@@ -80,6 +80,17 @@ export function AuthProvider({ children }) {
     return user?.roles?.some(role => role.name === 'admin') || false;
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await api.get("/user");
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to refresh user data:", error);
+      throw error;
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -87,6 +98,7 @@ export function AuthProvider({ children }) {
     login,
     logout,
     checkAuth,
+    refreshUser,
     isAdmin,
   };
 
@@ -109,6 +121,7 @@ export function useAuth() {
         login: async () => ({ success: false, error: "Not available during SSR" }),
         logout: async () => {},
         checkAuth: async () => {},
+        refreshUser: async () => {},
         isAdmin: () => false,
       };
     }

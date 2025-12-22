@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api from "@/lib/axios";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function Register() {
   const router = useRouter();
@@ -222,26 +223,20 @@ export default function Register() {
               >
                 Password
               </label>
-              <div className="relative group">
-                <input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
-                    errors?.password
-                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
-                  }`}
-                  placeholder="Enter your password"
-                />
-              </div>
-              {errors?.password && (
-                <p className="ml-1 text-sm text-red-400 font-medium">
-                  {errors.password[0]}
-                </p>
-              )}
+              <PasswordInput
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className={`px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
+                  errors?.password
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                    : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                }`}
+                placeholder="Enter your password"
+                error={errors?.password?.[0]}
+              />
             </div>
 
             <div className="space-y-2">
@@ -251,25 +246,20 @@ export default function Register() {
               >
                 Confirm Password
               </label>
-              <div className="relative group">
-                <input
-                  id="password_confirmation"
-                  type="password"
-                  value={formData.password_confirmation}
-                  onChange={handleChange}
-                  required
-                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 ${
-                    errors?.password_confirmation
-                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-                      : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
-                  }`}
-                />
-              </div>
-              {errors?.password_confirmation && (
-                <p className="ml-1 text-sm text-red-400 font-medium">
-                  {errors.password_confirmation[0]}
-                </p>
-              )}
+              <PasswordInput
+                id="password_confirmation"
+                name="password_confirmation"
+                value={formData.password_confirmation}
+                onChange={handleChange}
+                required
+                className={`px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
+                  errors?.password_confirmation
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                    : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
+                }`}
+                placeholder="Confirm your password"
+                error={errors?.password_confirmation?.[0]}
+              />
             </div>
 
             <button

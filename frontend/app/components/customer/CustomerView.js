@@ -15,10 +15,13 @@ export default function CustomerView({ customer: initialCustomer }) {
   const [activeTab, setActiveTab] = useState("profile");
   const [profilePicture, setProfilePicture] = useState(null);
   const [cart, setCart] = useState([]);
+  const [cartInitialized, setCartInitialized] = useState(false);
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [addressesLoading, setAddressesLoading] = useState(false);
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [addressForm, setAddressForm] = useState({
@@ -130,6 +133,15 @@ export default function CustomerView({ customer: initialCustomer }) {
       .toFixed(2);
   };
 
+  const handleCheckout = () => {
+    try {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    } catch (error) {
+      console.error("Failed to save cart before checkout:", error);
+    }
+    router.push("/components/customer/checkout");
+  };
+
   const handleSignOut = async () => {
     try {
       console.log("Customer page: Starting logout process...");
@@ -146,7 +158,14 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
-  const recentOrders = [];
+  const mapOrderStatus = (status) => {
+    if (status === "PENDING") return "Pending";
+    if (status === "PAID") return "Processing";
+    if (status === "SHIPPED") return "Shipped";
+    if (status === "DELIVERED") return "Delivered";
+    if (status === "CANCELLED") return "Cancelled";
+    return status || "Pending";
+  };
 
   // Initialize profile form with customer data
   useEffect(() => {
@@ -170,6 +189,42 @@ export default function CustomerView({ customer: initialCustomer }) {
       fetchProducts();
     }
   }, [activeTab]);
+
+  // Fetch orders when Orders tab is active
+  useEffect(() => {
+    if (activeTab === "orders") {
+      fetchOrders();
+    }
+  }, [activeTab]);
+
+  // Fetch orders once on load to keep stats in sync after refresh
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  // Load cart from storage on mount to survive page navigation
+  useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem("cart");
+      if (savedCart) {
+        setCart(JSON.parse(savedCart));
+      }
+    } catch (error) {
+      console.error("Failed to load cart from storage:", error);
+    } finally {
+      setCartInitialized(true);
+    }
+  }, []);
+
+  // Persist cart changes for checkout page
+  useEffect(() => {
+    if (!cartInitialized) return;
+    try {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    } catch (error) {
+      console.error("Failed to persist cart:", error);
+    }
+  }, [cart, cartInitialized]);
 
   const fetchAddresses = async () => {
     try {
@@ -196,6 +251,32 @@ export default function CustomerView({ customer: initialCustomer }) {
       setProductsLoading(false);
     }
   };
+
+  const fetchOrders = async () => {
+    try {
+      setOrdersLoading(true);
+      const response = await api.get('/orders');
+      setOrders(response.data.orders || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const totalOrders = orders.length;
+    const totalSpentValue = orders.reduce((sum, order) => {
+      return sum + Number(order.total_amount || 0);
+    }, 0);
+
+    setCustomer((prev) => ({
+      ...prev,
+      totalOrders,
+      totalSpent: `$${totalSpentValue.toFixed(2)}`,
+    }));
+  }, [orders]);
 
   // Address form handlers
   const handleAddressFormChange = (field, value) => {
@@ -854,38 +935,83 @@ export default function CustomerView({ customer: initialCustomer }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {recentOrders.map((order, index) => (
-                      <tr
-                        key={index}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {order.id}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {order.date}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
-                              order.status === "Delivered"
-                                ? "bg-green-100 text-green-800"
-                                : order.status === "Shipped"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
-                          >
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {order.items} items
-                        </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {order.total}
+                    {ordersLoading ? (
+                      Array.from({ length: 3 }).map((_, index) => (
+                        <tr key={index} className="animate-pulse">
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-24"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-20"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-16"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-14"></div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="h-4 bg-gray-200 rounded w-16"></div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : orders.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-10 text-center text-sm text-gray-500">
+                          No orders yet.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      orders.map((order) => {
+                        const orderDate = order.created_at
+                          ? new Date(order.created_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "2-digit",
+                              year: "numeric",
+                            })
+                          : "N/A";
+                        const itemCount = (order.items || []).reduce(
+                          (sum, item) => sum + (item.quantity || 0),
+                          0
+                        );
+                        const statusLabel = mapOrderStatus(order.status);
+
+                        return (
+                          <tr
+                            key={order.id}
+                            className="hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                              {`#ORD-${String(order.id).padStart(5, "0")}`}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {orderDate}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                                  statusLabel === "Delivered"
+                                    ? "bg-green-100 text-green-800"
+                                    : statusLabel === "Shipped"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : statusLabel === "Pending"
+                                    ? "bg-gray-100 text-gray-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
+                                {statusLabel}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {itemCount} items
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                              ${Number(order.total_amount || 0).toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1133,7 +1259,10 @@ export default function CustomerView({ customer: initialCustomer }) {
                         ${getCartTotal()}
                       </span>
                     </div>
-                    <button className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all">
+                    <button 
+                      onClick={handleCheckout}
+                      className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                    >
                       Proceed to Checkout
                     </button>
                   </div>

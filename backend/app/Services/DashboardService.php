@@ -45,14 +45,14 @@ class DashboardService
         // Check if orders table exists
         if ($this->tableExists('orders')) {
             $totalOrders = Order::count();
-            $pendingOrders = Order::where('status', 'pending')->count();
-            $completedOrders = Order::where('status', 'completed')->count();
+            $pendingOrders = Order::where('status', 'PENDING')->count();
+            $completedOrders = Order::where('status', 'DELIVERED')->count();
             
             // Calculate revenue
-            $totalRevenue = Order::where('status', 'completed')
+            $totalRevenue = Order::where('status', 'DELIVERED')
                 ->sum('total_amount') ?? 0;
             
-            $monthlyRevenue = Order::where('status', 'completed')
+            $monthlyRevenue = Order::where('status', 'DELIVERED')
                 ->whereMonth('created_at', now()->month)
                 ->whereYear('created_at', now()->year)
                 ->sum('total_amount') ?? 0;
@@ -200,7 +200,7 @@ class DashboardService
             ];
         }
 
-        $salesData = Order::where('status', 'completed')
+        $salesData = Order::where('status', 'DELIVERED')
             ->where('created_at', '>=', now()->subDays($days))
             ->selectRaw('DATE(created_at) as date, SUM(total_amount) as total')
             ->groupBy('date')

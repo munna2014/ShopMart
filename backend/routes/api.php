@@ -8,6 +8,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\CartController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -49,6 +50,13 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     // Orders
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
+
+    // Cart
+    Route::get('/cart', [CartController::class, 'show']);
+    Route::post('/cart/items', [CartController::class, 'addItem']);
+    Route::patch('/cart/items/{productId}', [CartController::class, 'updateItem']);
+    Route::delete('/cart/items/{productId}', [CartController::class, 'removeItem']);
+    Route::delete('/cart', [CartController::class, 'clear']);
 });
 
 // Admin-only routes

@@ -15,7 +15,6 @@ export default function CustomerView({ customer: initialCustomer }) {
   const [activeTab, setActiveTab] = useState("profile");
   const [profilePicture, setProfilePicture] = useState(null);
   const [cart, setCart] = useState([]);
-  const [cartInitialized, setCartInitialized] = useState(false);
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [addresses, setAddresses] = useState([]);
@@ -93,52 +92,46 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
-  const addToCart = (product) => {
-    const existingItem = cart.find((item) => item.id === product.id);
-    if (existingItem) {
-      setCart(
-        cart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      );
-    } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+  const addToCart = async (product) => {
+    try {
+      await api.post('/cart/items', { product_id: product.id, quantity: 1 });
+      await fetchCart();
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      alert(error.response?.data?.message || 'Failed to add item to cart.');
     }
   };
 
-  const removeFromCart = (productId) => {
-    setCart(cart.filter((item) => item.id !== productId));
+  const removeFromCart = async (productId) => {
+    try {
+      await api.delete(`/cart/items/${productId}`);
+      await fetchCart();
+    } catch (error) {
+      console.error('Error removing from cart:', error);
+      alert(error.response?.data?.message || 'Failed to remove item.');
+    }
   };
 
-  const updateQuantity = (productId, newQuantity) => {
-    if (newQuantity === 0) {
-      removeFromCart(productId);
-    } else {
-      setCart(
-        cart.map((item) =>
-          item.id === productId ? { ...item, quantity: newQuantity } : item
-        )
-      );
+  const updateQuantity = async (productId, newQuantity) => {
+    try {
+      await api.patch(`/cart/items/${productId}`, { quantity: newQuantity });
+      await fetchCart();
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      alert(error.response?.data?.message || 'Failed to update quantity.');
     }
   };
 
   const getCartTotal = () => {
     return cart
       .reduce((total, item) => {
-        const price = parseFloat(item.price.replace("$", ""));
+        const price = Number(item.price || 0);
         return total + price * item.quantity;
       }, 0)
       .toFixed(2);
   };
 
   const handleCheckout = () => {
-    try {
-      localStorage.setItem("cart", JSON.stringify(cart));
-    } catch (error) {
-      console.error("Failed to save cart before checkout:", error);
-    }
     router.push("/components/customer/checkout");
   };
 
@@ -202,29 +195,10 @@ export default function CustomerView({ customer: initialCustomer }) {
     fetchOrders();
   }, []);
 
-  // Load cart from storage on mount to survive page navigation
+  // Load cart from database on mount
   useEffect(() => {
-    try {
-      const savedCart = localStorage.getItem("cart");
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
-      }
-    } catch (error) {
-      console.error("Failed to load cart from storage:", error);
-    } finally {
-      setCartInitialized(true);
-    }
+    fetchCart();
   }, []);
-
-  // Persist cart changes for checkout page
-  useEffect(() => {
-    if (!cartInitialized) return;
-    try {
-      localStorage.setItem("cart", JSON.stringify(cart));
-    } catch (error) {
-      console.error("Failed to persist cart:", error);
-    }
-  }, [cart, cartInitialized]);
 
   const fetchAddresses = async () => {
     try {
@@ -262,6 +236,24 @@ export default function CustomerView({ customer: initialCustomer }) {
       setOrders([]);
     } finally {
       setOrdersLoading(false);
+    }
+  };
+
+  const fetchCart = async () => {
+    try {
+      const response = await api.get('/cart');
+      const items = response.data.cart?.items || [];
+      const mapped = items.map((item) => ({
+        id: item.product_id,
+        name: item.product?.name,
+        price: Number(item.unit_price || item.product?.price || 0),
+        image: item.product?.image_url || '/images/default-product.svg',
+        quantity: item.quantity,
+      }));
+      setCart(mapped);
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      setCart([]);
     }
   };
 
@@ -1216,7 +1208,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                               {item.name}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {item.price} × {item.quantity}
+                              {"$" + Number(item.price || 0).toFixed(2)} x {item.quantity}
                             </div>
                           </div>
                         </div>
@@ -1224,8 +1216,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                           <div className="font-bold text-gray-900">
                             $
                             {(
-                              parseFloat(item.price.replace("$", "")) *
-                              item.quantity
+                              Number(item.price || 0) * item.quantity
                             ).toFixed(2)}
                           </div>
                           <button
@@ -1757,3 +1748,5 @@ export default function CustomerView({ customer: initialCustomer }) {
     </div>
   );
 }
+
+

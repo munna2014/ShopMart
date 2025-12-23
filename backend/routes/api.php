@@ -20,6 +20,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 Route::group(['middleware' => ['auth:sanctum', 'admin']], function () {
     require __DIR__ . '/admin/dashboard.php';
     require __DIR__ . '/admin/products.php';
+    require __DIR__ . '/admin/categories.php';
     require __DIR__ . '/admin/orders.php';
     require __DIR__ . '/admin/users.php';
 });

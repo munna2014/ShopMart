@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Shipment;
 use App\Models\UserAddress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,9 +36,6 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'address_id' => 'required|integer',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|integer|distinct',
-            'items.*.quantity' => 'required|integer|min:1',
         ]);
 
         try {
@@ -47,6 +45,17 @@ class OrderController extends Controller
                 $address = UserAddress::where('user_id', $user->id)
                     ->where('id', $validated['address_id'])
                     ->firstOrFail();
+
+                $cart = \App\Models\Cart::active()
+                    ->where('user_id', $user->id)
+                    ->with('items')
+                    ->first();
+
+                if (!$cart || $cart->items->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'items' => ['Cart is empty.'],
+                    ]);
+                }
 
                 $order = Order::create([
                     'user_id' => $user->id,
@@ -67,32 +76,50 @@ class OrderController extends Controller
 
                 $total = 0;
 
-                foreach ($validated['items'] as $item) {
-                    $product = Product::where('id', $item['product_id'])
+                foreach ($cart->items as $cartItem) {
+                    $product = Product::where('id', $cartItem->product_id)
                         ->lockForUpdate()
                         ->firstOrFail();
 
-                    if ($product->stock_quantity < $item['quantity']) {
+                    if ($product->stock_quantity < $cartItem->quantity) {
                         throw ValidationException::withMessages([
                             'items' => ["Insufficient stock for {$product->name}."],
                         ]);
                     }
 
                     $unitPrice = (float) $product->price;
-                    $lineTotal = $unitPrice * $item['quantity'];
+                    $lineTotal = $unitPrice * $cartItem->quantity;
 
                     $order->items()->create([
                         'product_id' => $product->id,
-                        'quantity' => $item['quantity'],
+                        'quantity' => $cartItem->quantity,
                         'unit_price' => $unitPrice,
                         'total_price' => $lineTotal,
                     ]);
 
-                    $product->decreaseStock($item['quantity']);
+                    $product->decreaseStock($cartItem->quantity);
                     $total += $lineTotal;
                 }
 
                 $order->update(['total_amount' => $total]);
+
+                // Mark cart as checked out and clear items
+                $cart->markAsCheckedOut();
+                $cart->clear();
+
+                // Create shipment with initial event
+                $trackingNumber = 'TRK-' . $order->id . '-' . strtoupper(bin2hex(random_bytes(4)));
+                $shipment = Shipment::create([
+                    'order_id' => $order->id,
+                    'carrier' => null,
+                    'tracking_number' => $trackingNumber,
+                    'status' => 'CREATED',
+                ]);
+                $shipment->events()->create([
+                    'status' => 'CREATED',
+                    'event_time' => now(),
+                    'note' => 'Shipment created',
+                ]);
 
                 return $order->load(['items.product', 'user']);
             });
@@ -139,6 +166,22 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
         $order->status = $validated['status'];
         $order->save();
+
+        $shipment = Shipment::where('order_id', $order->id)->first();
+        if ($shipment) {
+            $shipmentStatus = $shipment->status;
+            if ($validated['status'] === 'SHIPPED') {
+                $shipmentStatus = 'IN_TRANSIT';
+            } elseif ($validated['status'] === 'DELIVERED') {
+                $shipmentStatus = 'DELIVERED';
+            } elseif ($validated['status'] === 'CANCELLED') {
+                $shipmentStatus = 'CANCELLED';
+            }
+
+            if ($shipmentStatus !== $shipment->status) {
+                $shipment->updateStatus($shipmentStatus, 'Updated via admin order status');
+            }
+        }
 
         return response()->json([
             'status' => 'success',

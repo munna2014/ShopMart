@@ -26,18 +26,29 @@ export default function CheckoutPage() {
     }
   }, [loading, isAuthenticated, isAdmin, router]);
 
-  // Load cart from storage
+  // Load cart from database
   useEffect(() => {
-    try {
-      const savedCart = localStorage.getItem("cart");
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
+    const fetchCart = async () => {
+      try {
+        const response = await api.get("/cart");
+        const items = response.data.cart?.items || [];
+        const mapped = items.map((item) => ({
+          id: item.product_id,
+          name: item.product?.name,
+          price: Number(item.unit_price || item.product?.price || 0),
+          image: item.product?.image_url || "/images/default-product.svg",
+          quantity: item.quantity,
+        }));
+        setCart(mapped);
+      } catch (error) {
+        console.error("Failed to load cart:", error);
+        setCart([]);
       }
-    } catch (error) {
-      console.error("Failed to load cart:", error);
-      setCart([]);
+    };
+    if (isAuthenticated) {
+      fetchCart();
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Fetch addresses for selection
   useEffect(() => {
@@ -62,7 +73,7 @@ export default function CheckoutPage() {
 
   const totals = useMemo(() => {
     const subtotal = cart.reduce((sum, item) => {
-      const price = parseFloat(String(item.price || "").replace("$", "")) || 0;
+      const price = Number(item.price || 0);
       return sum + price * (item.quantity || 0);
     }, 0);
     return {
@@ -80,17 +91,7 @@ export default function CheckoutPage() {
 
     setPlacingOrder(true);
     try {
-      const payload = {
-        address_id: selectedAddressId,
-        items: cart.map((item) => ({
-          product_id: item.id,
-          quantity: item.quantity || 1,
-        })),
-      };
-
-      await api.post("/orders", payload);
-
-      localStorage.removeItem("cart");
+      await api.post("/orders", { address_id: selectedAddressId });
       setCart([]);
       alert("Order placed successfully!");
       router.push("/components/customer");
@@ -187,13 +188,13 @@ export default function CheckoutPage() {
                         <div>
                           <div className="font-semibold text-gray-900">{item.name}</div>
                           <div className="text-sm text-gray-500">
-                            {item.quantity} × {item.price}
+                            {item.quantity} x {"$" + Number(item.price || 0).toFixed(2)}
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
                         <div className="text-lg font-bold text-gray-900">
-                          ${(parseFloat(String(item.price || "").replace("$", "")) * (item.quantity || 0)).toFixed(2)}
+                          ${(Number(item.price || 0) * (item.quantity || 0)).toFixed(2)}
                         </div>
                         <div className="text-xs text-gray-400">In stock</div>
                       </div>
@@ -306,3 +307,5 @@ export default function CheckoutPage() {
     </div>
   );
 }
+
+

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\Product;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -14,6 +16,56 @@ class CategoryController extends Controller
         $categories = Category::orderBy('sort_order')
             ->orderBy('name')
             ->get();
+
+        return response()->json(['categories' => $categories]);
+    }
+
+    public function publicIndex(): JsonResponse
+    {
+        $categories = Category::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function (Category $category) {
+                $productCount = Product::where('category_id', $category->id)
+                    ->where('is_active', true)
+                    ->count();
+
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'slug' => $category->slug,
+                    'description' => $category->description,
+                    'product_count' => $productCount,
+                    'icon' => $category->icon,
+                    'color' => $category->color,
+                    'is_active' => $category->is_active,
+                    'sort_order' => $category->sort_order,
+                ];
+            });
+
+        return response()->json(['categories' => $categories]);
+    }
+
+    public function homeCategories(): JsonResponse
+    {
+        $categories = Category::where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(function (Category $category) {
+                $productCount = Product::where('category_id', $category->id)
+                    ->where('is_active', true)
+                    ->count();
+
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'slug' => $category->slug,
+                    'description' => $category->description,
+                    'count' => $productCount,
+                    'icon' => $category->icon,
+                    'color' => $category->color,
+                ];
+            });
 
         return response()->json(['categories' => $categories]);
     }

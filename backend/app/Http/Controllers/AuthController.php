@@ -252,11 +252,19 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        auth()->user()->tokens()->delete();
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
 
-        return [
-            'message' => 'Logged out'
-        ];
+        $currentToken = $user->currentAccessToken();
+        if ($currentToken) {
+            $currentToken->delete();
+        } else {
+            $user->tokens()->delete();
+        }
+
+        return response()->json(['message' => 'Logged out'], 200);
     }
 
     public function forgotPassword(Request $request)

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
+import { addGuestItem } from "@/lib/guestCart";
 
 export default function ProductsPage() {
   const { user, isAuthenticated } = useAuth();
@@ -14,6 +15,7 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [addingToCart, setAddingToCart] = useState({});
 
   // Fetch products and categories
   useEffect(() => {
@@ -75,6 +77,34 @@ export default function ProductsPage() {
 
     setFilteredProducts(filtered);
   }, [products, searchTerm, selectedCategory, sortBy]);
+
+  const handleAddToCart = async (product) => {
+    if (product.inStock === false || (product.stock || 0) <= 0) {
+      return;
+    }
+
+    setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
+    try {
+      if (!isAuthenticated) {
+        addGuestItem(
+          {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.image || product.image_url,
+          },
+          1
+        );
+      } else {
+        await api.post("/cart/items", { product_id: product.id, quantity: 1 });
+      }
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      alert(error.response?.data?.message || "Failed to add item to cart.");
+    } finally {
+      setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -296,7 +326,10 @@ export default function ProductsPage() {
                   </div>
                 )}
 
-                <div className="relative aspect-square overflow-hidden rounded-t-lg">
+                <Link
+                  href={`/productDetails/${product.id}`}
+                  className="relative aspect-square overflow-hidden rounded-t-lg block"
+                >
                   <img
                     src={product.image || product.image_url || '/images/default-product.svg'}
                     alt={product.name}
@@ -305,7 +338,7 @@ export default function ProductsPage() {
                       e.target.src = '/images/default-product.svg';
                     }}
                   />
-                </div>
+                </Link>
 
                 <div className="p-4">
                   {product.category && (
@@ -314,9 +347,12 @@ export default function ProductsPage() {
                     </span>
                   )}
                   
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                  <Link
+                    href={`/productDetails/${product.id}`}
+                    className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 hover:text-green-700 transition-colors block"
+                  >
                     {product.name}
-                  </h3>
+                  </Link>
 
                   {product.description && (
                     <p className="text-sm text-gray-600 mb-3 line-clamp-2">
@@ -344,14 +380,19 @@ export default function ProductsPage() {
                   </div>
 
                   <button
+                    onClick={() => handleAddToCart(product)}
                     className={`w-full py-2 rounded-lg font-medium transition-all ${
-                      product.inStock !== false
+                      product.inStock !== false && !addingToCart[product.id]
                         ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-md'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
-                    disabled={product.inStock === false}
+                    disabled={product.inStock === false || addingToCart[product.id]}
                   >
-                    {product.inStock !== false ? 'Add to Cart' : 'Out of Stock'}
+                    {product.inStock !== false
+                      ? addingToCart[product.id]
+                        ? 'Adding...'
+                        : 'Add to Cart'
+                      : 'Out of Stock'}
                   </button>
                 </div>
               </div>

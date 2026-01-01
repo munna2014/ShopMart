@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import PasswordInput from "@/components/PasswordInput";
 
 export default function Login() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login: authLogin, isAuthenticated, isAdmin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,10 +22,11 @@ export default function Login() {
       if (isAdmin()) {
         router.push("/components/admin");
       } else {
-        router.push("/components/customer");
+        const redirectTo = searchParams.get("redirect");
+        router.push(redirectTo || "/components/customer");
       }
     }
-  }, [isAuthenticated, router, isAdmin]);
+  }, [isAuthenticated, router, isAdmin, searchParams]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -67,7 +69,8 @@ export default function Login() {
         if (result.user.roles?.some(role => role.name === 'admin')) {
           router.push("/components/admin");
         } else {
-          router.push("/components/customer");
+          const redirectTo = searchParams.get("redirect");
+          router.push(redirectTo || "/components/customer");
         }
       } else {
         setErrors({ general: [result.error] });

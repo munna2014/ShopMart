@@ -5,6 +5,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
+import {
+  addGuestItem,
+  getGuestCart,
+  getGuestCartCount,
+  updateGuestItem,
+} from "@/lib/guestCart";
 
 export default function HomeClient() {
   const router = useRouter();
@@ -21,6 +27,8 @@ export default function HomeClient() {
   const [categories, setCategories] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [addingToCart, setAddingToCart] = useState({});
+  const [cartItems, setCartItems] = useState([]);
 
   // Image sets for rotation
   const imageSets = [
@@ -101,6 +109,99 @@ export default function HomeClient() {
       window.location.reload();
     }
   };
+
+  const fetchCart = async () => {
+    try {
+      const response = await api.get("/cart");
+      const items = response.data.cart?.items || [];
+      const mapped = items.map((item) => ({
+        id: item.product_id,
+        quantity: item.quantity,
+      }));
+      setCartItems(mapped);
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+      setCartItems([]);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCart();
+    } else {
+      setCartItems(getGuestCart());
+    }
+  }, [isAuthenticated]);
+
+  const handleAddToCart = async (product) => {
+    if (product.inStock === false || (product.stock || 0) <= 0) {
+      return;
+    }
+
+    setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
+    if (!isAuthenticated) {
+      const updated = addGuestItem(product, 1);
+      setCartItems(updated);
+      setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
+      return;
+    }
+
+    setCartItems((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { id: product.id, quantity: 1 }];
+    });
+    try {
+      await api.post("/cart/items", { product_id: product.id, quantity: 1 });
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      alert(error.response?.data?.message || "Failed to add item to cart.");
+      fetchCart();
+    } finally {
+      setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
+    }
+  };
+
+  const updateCartQuantity = async (productId, nextQuantity) => {
+    setCartItems((prev) => {
+      if (nextQuantity <= 0) {
+        return prev.filter((item) => item.id !== productId);
+      }
+      return prev.map((item) =>
+        item.id === productId ? { ...item, quantity: nextQuantity } : item
+      );
+    });
+
+    if (!isAuthenticated) {
+      const updated = updateGuestItem(productId, nextQuantity);
+      setCartItems(updated);
+      return;
+    }
+
+    try {
+      if (nextQuantity <= 0) {
+        await api.delete(`/cart/items/${productId}`);
+      } else {
+        await api.patch(`/cart/items/${productId}`, {
+          quantity: nextQuantity,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating cart:", error);
+      alert(error.response?.data?.message || "Failed to update cart.");
+      fetchCart();
+    }
+  };
+
+  const cartCount = isAuthenticated
+    ? cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0)
+    : getGuestCartCount();
 
   if (!mounted) return null;
 
@@ -475,6 +576,16 @@ export default function HomeClient() {
               </div>
             ) : (
               featuredProducts.map((product, index) => (
+              (() => {
+                const cartItem = cartItems.find((item) => item.id === product.id);
+                const cartQuantity = cartItem?.quantity || 0;
+                const availableStock = Math.max(
+                  0,
+                  (product.stock || 0) - cartQuantity
+                );
+                const atStockLimit = availableStock === 0 && cartQuantity > 0;
+
+                return (
               <div
                 key={index}
                 className="group bg-gray rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
@@ -489,7 +600,10 @@ export default function HomeClient() {
                   </div>
                 )}
 
-                <div className="relative aspect-square overflow-hidden">
+                <Link
+                  href={`/productDetails/${product.id}`}
+                  className="relative aspect-square overflow-hidden block"
+                >
                   <img
                     src={product.image || product.image_url || '/images/default-product.svg'}
                     alt={product.name}
@@ -499,7 +613,7 @@ export default function HomeClient() {
                     }}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
-                </div>
+                </Link>
 
                 <div className="p-6">
                   <div className="mb-2">
@@ -509,9 +623,12 @@ export default function HomeClient() {
                       </span>
                     )}
                   </div>
-                  <h4 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">
+                  <Link
+                    href={`/productDetails/${product.id}`}
+                    className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 hover:text-green-700 transition-colors block"
+                  >
                     {product.name}
-                  </h4>
+                  </Link>
 
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex text-yellow-400">
@@ -536,7 +653,9 @@ export default function HomeClient() {
 
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-gray-600">
-                      {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                      {availableStock > 0
+                        ? `${availableStock} in stock`
+                        : 'Out of stock'}
                     </span>
                     {product.inStock === false && (
                       <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
@@ -545,18 +664,54 @@ export default function HomeClient() {
                     )}
                   </div>
 
-                  <button 
-                    className={`w-full py-3 rounded-xl font-semibold transition-all ${
-                      product.inStock !== false 
-                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg hover:scale-105' 
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                    disabled={product.inStock === false}
-                  >
-                    {/* {product.inStock !== false ? 'Add to Cart' : 'Out of Stock'} */}
-                  </button>
+                  {cartItem ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        onClick={() =>
+                          updateCartQuantity(product.id, cartQuantity - 1)
+                        }
+                        className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200"
+                      >
+                        -
+                      </button>
+                      <span className="font-semibold text-gray-900">
+                        {cartQuantity}
+                      </span>
+                      <button
+                        onClick={() =>
+                          updateCartQuantity(product.id, cartQuantity + 1)
+                        }
+                        disabled={atStockLimit}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          atStockLimit
+                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                            : "bg-green-600 text-white hover:bg-green-500"
+                        }`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => handleAddToCart(product)}
+                      className={`w-full py-3 rounded-xl font-semibold transition-all ${
+                        product.inStock !== false && !addingToCart[product.id]
+                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg hover:scale-105' 
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                      disabled={product.inStock === false || addingToCart[product.id]}
+                    >
+                      {product.inStock !== false
+                        ? addingToCart[product.id]
+                          ? "Adding..."
+                          : "Add to Cart"
+                        : "Out of Stock"}
+                    </button>
+                  )}
                 </div>
               </div>
+                );
+              })()
               ))
             )}
           </div>
@@ -849,6 +1004,28 @@ export default function HomeClient() {
           animation: bounce-slow 4s ease-in-out infinite;
         }
       `}</style>
+
+      {cartCount > 0 && (
+        <Link
+          href="/components/customer/cart"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-full shadow-xl hover:shadow-2xl transition-all"
+        >
+          <svg
+            className="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Cart ({cartCount})
+        </Link>
+      )}
     </div>
   );
 }

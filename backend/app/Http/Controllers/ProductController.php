@@ -209,6 +209,66 @@ class ProductController extends Controller
     }
 
     /**
+     * Get products for customer shop with filters.
+     */
+    public function customerProducts(Request $request): JsonResponse
+    {
+        try {
+            $limit = (int) $request->get('limit', 50);
+            $search = trim((string) $request->get('search', ''));
+            $categoryId = $request->get('category_id');
+
+            $query = Product::with('category')
+                ->active()
+                ->orderBy('created_at', 'desc');
+
+            if ($search !== '') {
+                $query->search($search);
+            }
+
+            if ($categoryId) {
+                $query->where('category_id', $categoryId);
+            }
+
+            if ($limit > 0) {
+                $query->limit($limit);
+            }
+
+            $products = $query->get();
+
+            $formattedProducts = $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'description' => $product->description,
+                    'price' => '$' . number_format($product->price, 2),
+                    'image' => $product->image_url ?: '/images/default-product.svg',
+                    'category' => $product->category ? $product->category->name : 'Uncategorized',
+                    'stock' => $product->stock_quantity,
+                    'rating' => 4,
+                    'reviews' => rand(10, 100),
+                    'badge' => $product->stock_quantity > 0 ? null : 'Out of Stock',
+                    'badgeColor' => $product->stock_quantity > 0 ? null : 'bg-red-500',
+                    'oldPrice' => null,
+                    'inStock' => $product->stock_quantity > 0,
+                ];
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'products' => $formattedProducts,
+                'message' => 'Products retrieved successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve products',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Get products for admin dashboard with management data
      */
     public function adminIndex(Request $request): JsonResponse

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import api from "./axios";
+import { mergeGuestCartToServer } from "./guestCart";
 
 const AuthContext = createContext();
 
@@ -31,6 +32,11 @@ export function AuthProvider({ children }) {
       console.log("User roles:", response.data.roles);
       setUser(response.data);
       setIsAuthenticated(true);
+      try {
+        await mergeGuestCartToServer(api);
+      } catch (error) {
+        console.error("Failed to merge guest cart:", error);
+      }
     } catch (error) {
       console.error("Auth check failed:", error);
       localStorage.removeItem("token");
@@ -49,6 +55,11 @@ export function AuthProvider({ children }) {
       localStorage.setItem("token", token);
       setUser(user);
       setIsAuthenticated(true);
+      try {
+        await mergeGuestCartToServer(api);
+      } catch (error) {
+        console.error("Failed to merge guest cart:", error);
+      }
       
       return { success: true, user };
     } catch (error) {

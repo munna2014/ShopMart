@@ -155,6 +155,59 @@ class OrderController extends Controller
     }
 
     /**
+     * Cancel a pending order (customer).
+     */
+    public function cancel(Request $request, int $id): JsonResponse
+    {
+        try {
+            $order = DB::transaction(function () use ($request, $id) {
+                $order = Order::with('items')
+                    ->where('id', $id)
+                    ->where('user_id', $request->user()->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($order->status !== 'PENDING') {
+                    throw ValidationException::withMessages([
+                        'status' => ['Only pending orders can be cancelled.'],
+                    ]);
+                }
+
+                foreach ($order->items as $item) {
+                    $product = Product::where('id', $item->product_id)
+                        ->lockForUpdate()
+                        ->first();
+                    if ($product) {
+                        $product->increaseStock($item->quantity);
+                    }
+                }
+
+                $order->updateStatus('CANCELLED');
+
+                $shipment = Shipment::where('order_id', $order->id)->first();
+                if ($shipment && $shipment->status !== 'CANCELLED') {
+                    $shipment->updateStatus('CANCELLED', 'Cancelled by customer');
+                }
+
+                return $order->fresh(['items.product']);
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'order' => $order,
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to cancel order',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Update order status (admin).
      */
     public function updateStatus(Request $request, int $id): JsonResponse

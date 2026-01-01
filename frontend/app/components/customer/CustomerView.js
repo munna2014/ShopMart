@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Fragment } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import PasswordInput from "@/components/PasswordInput";
 
 export default function CustomerView({ customer: initialCustomer }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { logout, refreshUser } = useAuth();
   const [customer, setCustomer] = useState(initialCustomer);
 
@@ -17,10 +18,16 @@ export default function CustomerView({ customer: initialCustomer }) {
   const [cart, setCart] = useState([]);
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [addresses, setAddresses] = useState([]);
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [cancellingOrders, setCancellingOrders] = useState({});
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [addressForm, setAddressForm] = useState({
@@ -52,6 +59,10 @@ export default function CustomerView({ customer: initialCustomer }) {
   });
   const [passwordErrors, setPasswordErrors] = useState({});
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const cartItemCount = cart.reduce(
+    (sum, item) => sum + (item.quantity || 0),
+    0
+  );
 
   const handleProfilePictureChange = async (e) => {
     const file = e.target.files[0];
@@ -93,32 +104,80 @@ export default function CustomerView({ customer: initialCustomer }) {
   };
 
   const addToCart = async (product) => {
+    if ((product.stock || 0) <= 0) {
+      return;
+    }
+
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
+      if (existing) {
+        if (product.stock && existing.quantity >= product.stock) {
+          return prev;
+        }
+        return prev.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: product.id,
+          name: product.name,
+          price: Number(product.price || 0),
+          image:
+            product.image_url ||
+            product.image ||
+            '/images/default-product.svg',
+          quantity: 1,
+        },
+      ];
+    });
+
     try {
       await api.post('/cart/items', { product_id: product.id, quantity: 1 });
-      await fetchCart();
     } catch (error) {
       console.error('Error adding to cart:', error);
       alert(error.response?.data?.message || 'Failed to add item to cart.');
+      fetchCart();
     }
   };
 
   const removeFromCart = async (productId) => {
+    setCart((prev) => prev.filter((item) => item.id !== productId));
+
     try {
       await api.delete(`/cart/items/${productId}`);
-      await fetchCart();
     } catch (error) {
       console.error('Error removing from cart:', error);
       alert(error.response?.data?.message || 'Failed to remove item.');
+      fetchCart();
     }
   };
 
   const updateQuantity = async (productId, newQuantity) => {
+    const product = products.find((item) => item.id === productId);
+    const maxQuantity = product?.stock ?? Number.POSITIVE_INFINITY;
+
+    setCart((prev) => {
+      if (newQuantity <= 0) {
+        return prev.filter((item) => item.id !== productId);
+      }
+      if (newQuantity > maxQuantity) {
+        return prev;
+      }
+      return prev.map((item) =>
+        item.id === productId ? { ...item, quantity: newQuantity } : item
+      );
+    });
+
     try {
       await api.patch(`/cart/items/${productId}`, { quantity: newQuantity });
-      await fetchCart();
     } catch (error) {
       console.error('Error updating quantity:', error);
       alert(error.response?.data?.message || 'Failed to update quantity.');
+      fetchCart();
     }
   };
 
@@ -169,6 +228,13 @@ export default function CustomerView({ customer: initialCustomer }) {
     });
   }, [customer]);
 
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && ["profile", "orders", "shop", "addresses", "settings"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   // Fetch addresses when Addresses tab is active
   useEffect(() => {
     if (activeTab === "addresses" && addresses.length === 0) {
@@ -176,10 +242,23 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   }, [activeTab]);
 
-  // Fetch products when Shop tab is active
+  // Fetch products when Shop tab is active or filters change
   useEffect(() => {
-    if (activeTab === "shop" && products.length === 0) {
+    if (activeTab !== "shop") {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
       fetchProducts();
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [activeTab, productSearch, selectedCategory]);
+
+  // Fetch categories when Shop tab is active
+  useEffect(() => {
+    if (activeTab === "shop" && categories.length === 0) {
+      fetchCategories();
     }
   }, [activeTab]);
 
@@ -216,7 +295,18 @@ export default function CustomerView({ customer: initialCustomer }) {
   const fetchProducts = async () => {
     try {
       setProductsLoading(true);
-      const response = await api.get('/home/featured-products?limit=50');
+      const params = {
+        limit: 50,
+      };
+      const trimmedSearch = productSearch.trim();
+      if (trimmedSearch) {
+        params.search = trimmedSearch;
+      }
+      if (selectedCategory) {
+        params.category_id = selectedCategory;
+      }
+
+      const response = await api.get('/customer/products', { params });
       setProducts(response.data.products || []);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -239,6 +329,23 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+      const response = await api.get('/categories');
+      setCategories(response.data.categories || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setCategories([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const toggleOrderDetails = (orderId) => {
+    setExpandedOrderId((prev) => (prev === orderId ? null : orderId));
+  };
+
   const fetchCart = async () => {
     try {
       const response = await api.get('/cart');
@@ -258,8 +365,9 @@ export default function CustomerView({ customer: initialCustomer }) {
   };
 
   useEffect(() => {
-    const totalOrders = orders.length;
-    const totalSpentValue = orders.reduce((sum, order) => {
+    const activeOrders = orders.filter((order) => order.status !== "CANCELLED");
+    const totalOrders = activeOrders.length;
+    const totalSpentValue = activeOrders.reduce((sum, order) => {
       return sum + Number(order.total_amount || 0);
     }, 0);
 
@@ -572,6 +680,23 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
+  const cancelOrder = async (orderId) => {
+    if (!confirm("Cancel this order?")) {
+      return;
+    }
+
+    setCancellingOrders((prev) => ({ ...prev, [orderId]: true }));
+    try {
+      await api.patch(`/orders/${orderId}/cancel`);
+      await fetchOrders();
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      alert(error.response?.data?.message || "Failed to cancel order.");
+    } finally {
+      setCancellingOrders((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
@@ -599,28 +724,6 @@ export default function CustomerView({ customer: initialCustomer }) {
                 ShopMart
               </span>
             </Link>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
-              <Link
-                href="/#categories"
-                className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
-              >
-                Categories
-              </Link>
-              <Link
-                href="/#featured"
-                className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
-              >
-                Products
-              </Link>
-              <Link
-                href="/components/about"
-                className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
-              >
-                About
-              </Link>
-            </div>
 
             {/* Right Side - Sign Out */}
             <div className="flex items-center gap-4">
@@ -924,6 +1027,9 @@ export default function CustomerView({ customer: initialCustomer }) {
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">
                         Total
                       </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">
+                        Details
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -967,40 +1073,115 @@ export default function CustomerView({ customer: initialCustomer }) {
                           0
                         );
                         const statusLabel = mapOrderStatus(order.status);
+                        const showDetails = expandedOrderId === order.id;
+                        const isPending = order.status === "PENDING";
+                        const isCancelling = Boolean(cancellingOrders[order.id]);
 
                         return (
-                          <tr
-                            key={order.id}
-                            className="hover:bg-gray-50 transition-colors"
-                          >
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                              {`#ORD-${String(order.id).padStart(5, "0")}`}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">
-                              {orderDate}
-                            </td>
-                            <td className="px-6 py-4">
-                              <span
-                                className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
-                                  statusLabel === "Delivered"
-                                    ? "bg-green-100 text-green-800"
-                                    : statusLabel === "Shipped"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : statusLabel === "Pending"
-                                    ? "bg-gray-100 text-gray-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {statusLabel}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">
-                              {itemCount} items
-                            </td>
-                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                              ${Number(order.total_amount || 0).toFixed(2)}
-                            </td>
-                          </tr>
+                          <Fragment key={order.id}>
+                            <tr className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                                {`#ORD-${String(order.id).padStart(5, "0")}`}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500">
+                                {orderDate}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                                    statusLabel === "Delivered"
+                                      ? "bg-green-100 text-green-800"
+                                      : statusLabel === "Shipped"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : statusLabel === "Pending"
+                                      ? "bg-gray-100 text-gray-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}
+                                >
+                                  {statusLabel}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500">
+                                {itemCount} items
+                              </td>
+                              <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                                ${Number(order.total_amount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-6 py-4 text-sm">
+                                <div className="flex items-center gap-4">
+                                  <button
+                                    onClick={() => toggleOrderDetails(order.id)}
+                                    className="text-green-600 font-semibold hover:text-green-700"
+                                  >
+                                    {showDetails ? "Hide" : "View"}
+                                  </button>
+                                  {isPending && (
+                                    <button
+                                      onClick={() => cancelOrder(order.id)}
+                                      disabled={isCancelling}
+                                      className={`font-semibold ${
+                                        isCancelling
+                                          ? "text-gray-400 cursor-not-allowed"
+                                          : "text-red-500 hover:text-red-600"
+                                      }`}
+                                    >
+                                      {isCancelling ? "Cancelling..." : "Cancel"}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            {showDetails && (
+                              <tr className="bg-gray-50">
+                                <td colSpan="6" className="px-6 py-4">
+                                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="font-semibold text-gray-900">
+                                        Order Details
+                                      </div>
+                                      <div className="text-sm text-gray-500">
+                                        {itemCount} items
+                                      </div>
+                                    </div>
+                                    {order.items && order.items.length > 0 ? (
+                                      <div className="space-y-3">
+                                        {order.items.map((item) => {
+                                          const itemPrice = Number(
+                                            item.unit_price ||
+                                              item.price ||
+                                              item.product?.price ||
+                                              0
+                                          );
+                                          return (
+                                            <div
+                                              key={item.id || `${order.id}-${item.product_id}`}
+                                              className="flex items-center justify-between text-sm"
+                                            >
+                                              <div>
+                                                <div className="font-medium text-gray-900">
+                                                  {item.product?.name || item.name || "Item"}
+                                                </div>
+                                                <div className="text-gray-500">
+                                                  ${itemPrice.toFixed(2)} x {item.quantity}
+                                                </div>
+                                              </div>
+                                              <div className="font-semibold text-gray-900">
+                                                ${(itemPrice * (item.quantity || 0)).toFixed(2)}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <div className="text-sm text-gray-500">
+                                        No items available for this order.
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
                         );
                       })
                     )}
@@ -1014,11 +1195,19 @@ export default function CustomerView({ customer: initialCustomer }) {
           {activeTab === "shop" && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Shop Products
-                </h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Shop Products
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Search and filter by category.
+                  </p>
+                </div>
                 <div className="relative">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all">
+                  <Link
+                    href="/components/customer/cart"
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all"
+                  >
                     <svg
                       className="w-5 h-5"
                       viewBox="0 0 24 24"
@@ -1032,8 +1221,46 @@ export default function CustomerView({ customer: initialCustomer }) {
                         strokeLinejoin="round"
                       />
                     </svg>
-                    Cart ({cart.length})
-                  </button>
+                    Cart ({cartItemCount})
+                  </Link>
+                </div>
+              </div>
+
+              <div className="flex flex-col lg:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-600 mb-2">
+                    Search products
+                  </label>
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Search by name, category, or description..."
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="w-full lg:w-72">
+                  <label className="block text-sm font-medium text-gray-600 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                  >
+                    <option value="">All Categories</option>
+                    {categoriesLoading ? (
+                      <option value="" disabled>
+                        Loading categories...
+                      </option>
+                    ) : (
+                      categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
               </div>
 
@@ -1070,9 +1297,15 @@ export default function CustomerView({ customer: initialCustomer }) {
                         strokeLinejoin="round"
                       />
                     </svg>
-                    <h3 className="text-xl font-medium text-gray-900 mb-2">No products available</h3>
+                    <h3 className="text-xl font-medium text-gray-900 mb-2">
+                      {productSearch.trim() || selectedCategory
+                        ? "No matching products"
+                        : "No products available"}
+                    </h3>
                     <p className="text-gray-600 mb-4">
-                      Products will appear here once they are added to the store
+                      {productSearch.trim() || selectedCategory
+                        ? "Try a different search or category."
+                        : "Products will appear here once they are added to the store"}
                     </p>
                     <button
                       onClick={fetchProducts}
@@ -1086,12 +1319,20 @@ export default function CustomerView({ customer: initialCustomer }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
                   {products.map((product) => {
                     const cartItem = cart.find((item) => item.id === product.id);
+                    const cartQuantity = cartItem?.quantity || 0;
+                    const availableStock = Math.max(
+                      0,
+                      (product.stock || 0) - cartQuantity
+                    );
                     return (
                       <div
                         key={product.id}
                         className="bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden hover:shadow-green-200/50 transition-all group"
                       >
-                        <div className="relative">
+                        <Link
+                          href={`/productDetails/${product.id}`}
+                          className="relative block"
+                        >
                           <img
                             src={product.image || product.image_url || '/images/default-product.svg'}
                             alt={product.name}
@@ -1105,14 +1346,17 @@ export default function CustomerView({ customer: initialCustomer }) {
                               {product.badge}
                             </div>
                           )}
-                        </div>
+                        </Link>
                         <div className="p-6">
                           <div className="text-sm text-green-600 font-medium mb-2">
                             {product.category}
                           </div>
-                          <h3 className="text-lg font-bold text-gray-900 mb-2">
+                          <Link
+                            href={`/productDetails/${product.id}`}
+                            className="text-lg font-bold text-gray-900 mb-2 hover:text-green-700 transition-colors block"
+                          >
                             {product.name}
-                          </h3>
+                          </Link>
                           {product.description && (
                             <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                               {product.description}
@@ -1132,7 +1376,9 @@ export default function CustomerView({ customer: initialCustomer }) {
                               {product.price}
                             </div>
                             <div className="text-sm text-gray-600">
-                              {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                              {availableStock > 0
+                                ? `${availableStock} in stock`
+                                : 'Out of stock'}
                             </div>
                           </div>
                           <div className="flex items-center justify-between">
@@ -1159,7 +1405,12 @@ export default function CustomerView({ customer: initialCustomer }) {
                                       cartItem.quantity + 1
                                     )
                                   }
-                                  className="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center hover:bg-green-500"
+                                  disabled={availableStock === 0}
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                    availableStock === 0
+                                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                      : 'bg-green-600 text-white hover:bg-green-500'
+                                  }`}
                                 >
                                   +
                                 </button>
@@ -1167,14 +1418,14 @@ export default function CustomerView({ customer: initialCustomer }) {
                             ) : (
                               <button
                                 onClick={() => addToCart(product)}
-                                disabled={product.inStock === false}
+                                disabled={availableStock === 0}
                                 className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                                  product.inStock !== false
+                                  availableStock > 0
                                     ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg'
                                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 }`}
                               >
-                                {product.inStock !== false ? 'Add to Cart' : 'Out of Stock'}
+                                {availableStock > 0 ? 'Add to Cart' : 'Unavailable'}
                               </button>
                             )}
                           </div>
@@ -1185,80 +1436,6 @@ export default function CustomerView({ customer: initialCustomer }) {
                 </div>
               )}
 
-              {/* Cart Summary */}
-              {cart.length > 0 && (
-                <div className="bg-white border border-gray-100 rounded-2xl shadow-xl p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">
-                    Shopping Cart
-                  </h3>
-                  <div className="space-y-4">
-                    {cart.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
-                      >
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-16 h-16 object-cover rounded-lg"
-                          />
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {item.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {"$" + Number(item.price || 0).toFixed(2)} x {item.quantity}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="font-bold text-gray-900">
-                            $
-                            {(
-                              Number(item.price || 0) * item.quantity
-                            ).toFixed(2)}
-                          </div>
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <svg
-                              className="w-5 h-5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <path
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-lg font-semibold text-gray-900">
-                        Total:
-                      </span>
-                      <span className="text-2xl font-bold text-green-600">
-                        ${getCartTotal()}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={handleCheckout}
-                      className="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-                    >
-                      Proceed to Checkout
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

@@ -5,12 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
+import { getGuestCart, mergeGuestCartToServer } from "@/lib/guestCart";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { loading, isAuthenticated, isAdmin } = useAuth();
 
   const [cart, setCart] = useState([]);
+  const [cartLoading, setCartLoading] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [addressesLoading, setAddressesLoading] = useState(false);
@@ -20,7 +22,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (loading) return;
     if (!isAuthenticated) {
-      router.replace("/login");
+      router.replace("/login?redirect=/components/customer/checkout");
     } else if (isAdmin()) {
       router.replace("/components/admin");
     }
@@ -30,6 +32,10 @@ export default function CheckoutPage() {
   useEffect(() => {
     const fetchCart = async () => {
       try {
+        setCartLoading(true);
+        if (getGuestCart().length > 0) {
+          await mergeGuestCartToServer(api);
+        }
         const response = await api.get("/cart");
         const items = response.data.cart?.items || [];
         const mapped = items.map((item) => ({
@@ -43,6 +49,8 @@ export default function CheckoutPage() {
       } catch (error) {
         console.error("Failed to load cart:", error);
         setCart([]);
+      } finally {
+        setCartLoading(false);
       }
     };
     if (isAuthenticated) {
@@ -84,6 +92,11 @@ export default function CheckoutPage() {
   }, [cart]);
 
   const handlePlaceOrder = async () => {
+    if (!isAuthenticated) {
+      router.push("/login?redirect=/components/customer/checkout");
+      return;
+    }
+
     if (!selectedAddressId) {
       alert("Please select an address before placing the order.");
       return;
@@ -155,7 +168,14 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {cart.length === 0 ? (
+        {cartLoading ? (
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8 text-center">
+            <div className="inline-flex items-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+              Loading your cart...
+            </div>
+          </div>
+        ) : cart.length === 0 ? (
           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8 text-center">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Your cart is empty</h2>
             <p className="text-gray-600 mb-4">

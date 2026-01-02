@@ -218,7 +218,19 @@ class ProductController extends Controller
             $search = trim((string) $request->get('search', ''));
             $categoryId = $request->get('category_id');
 
-            $query = Product::with('category')
+            $query = Product::select(
+                    'id',
+                    'name',
+                    'description',
+                    'price',
+                    'image_url',
+                    'stock_quantity',
+                    'category_id',
+                    'created_at'
+                )
+                ->with(['category' => function ($categoryQuery) {
+                    $categoryQuery->select('id', 'name');
+                }])
                 ->active()
                 ->orderBy('created_at', 'desc');
 

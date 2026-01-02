@@ -26,6 +26,7 @@ export default function CustomerView({ customer: initialCustomer }) {
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [cancellingOrders, setCancellingOrders] = useState({});
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -318,9 +319,13 @@ export default function CustomerView({ customer: initialCustomer }) {
 
   const fetchOrders = async () => {
     try {
+      if (ordersLoading || ordersLoaded) {
+        return;
+      }
       setOrdersLoading(true);
       const response = await api.get('/orders');
       setOrders(response.data.orders || []);
+      setOrdersLoaded(true);
     } catch (error) {
       console.error('Error fetching orders:', error);
       setOrders([]);
@@ -1134,12 +1139,12 @@ export default function CustomerView({ customer: initialCustomer }) {
                             {showDetails && (
                               <tr className="bg-gray-50">
                                 <td colSpan="6" className="px-6 py-4">
-                                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                                    <div className="flex items-center justify-between mb-3">
+                                  <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+                                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                                       <div className="font-semibold text-gray-900">
                                         Order Details
                                       </div>
-                                      <div className="text-sm text-gray-500">
+                                      <div className="text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                                         {itemCount} items
                                       </div>
                                     </div>
@@ -1152,28 +1157,49 @@ export default function CustomerView({ customer: initialCustomer }) {
                                               item.product?.price ||
                                               0
                                           );
+                                          const itemName =
+                                            item.product?.name || item.name || "Item";
+                                          const itemImage =
+                                            item.product?.image_url ||
+                                            item.product?.image ||
+                                            item.image ||
+                                            "/images/default-product.svg";
                                           return (
                                             <div
                                               key={item.id || `${order.id}-${item.product_id}`}
-                                              className="flex items-center justify-between text-sm"
+                                              className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/80 p-3"
                                             >
-                                              <div>
-                                                <div className="font-medium text-gray-900">
-                                                  {item.product?.name || item.name || "Item"}
+                                              <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-lg border border-gray-200 bg-white overflow-hidden flex items-center justify-center">
+                                                  <img
+                                                    src={itemImage}
+                                                    alt={itemName}
+                                                    className="h-full w-full object-cover"
+                                                  />
                                                 </div>
-                                                <div className="text-gray-500">
-                                                  ${itemPrice.toFixed(2)} x {item.quantity}
+                                                <div>
+                                                  <div className="font-semibold text-gray-900">
+                                                    {itemName}
+                                                  </div>
+                                                  <div className="text-xs text-gray-500">
+                                                    Unit ${itemPrice.toFixed(2)} · Qty {item.quantity}
+                                                  </div>
                                                 </div>
                                               </div>
-                                              <div className="font-semibold text-gray-900">
-                                                ${(itemPrice * (item.quantity || 0)).toFixed(2)}
+                                              <div className="text-right">
+                                                <div className="text-xs text-gray-500">
+                                                  Line total
+                                                </div>
+                                                <div className="font-semibold text-gray-900">
+                                                  ${(itemPrice * (item.quantity || 0)).toFixed(2)}
+                                                </div>
                                               </div>
                                             </div>
                                           );
                                         })}
                                       </div>
                                     ) : (
-                                      <div className="text-sm text-gray-500">
+                                      <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-lg p-4">
                                         No items available for this order.
                                       </div>
                                     )}

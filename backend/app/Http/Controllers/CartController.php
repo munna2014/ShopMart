@@ -15,7 +15,16 @@ class CartController extends Controller
     public function show(Request $request): JsonResponse
     {
         $cart = $this->getOrCreateCart($request->user()->id);
-        $cart->load('items.product');
+        $cart->load([
+            'items' => function ($query) {
+                $query->select('id', 'cart_id', 'product_id', 'quantity', 'unit_price')
+                    ->with([
+                        'product' => function ($productQuery) {
+                            $productQuery->select('id', 'name', 'price', 'image_url');
+                        },
+                    ]);
+            },
+        ]);
 
         return response()->json([
             'status' => 'success',

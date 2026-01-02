@@ -191,79 +191,25 @@ export default function ProductDetailsPage({ params }) {
                     e.target.src = "/images/default-product.svg";
                   }}
                 />
-                <p className="mt-3 text-sm text-gray-600">
-                  Image description:
-                  {imageDescriptionLines.map((line, index) => (
-                    <span key={index} className="block">
-                      {line}
-                    </span>
-                  ))}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-green-600 font-semibold uppercase tracking-wide mb-2">
-                  {product.category?.name || "Uncategorized"}
-                </p>
-                <h1 className="text-3xl font-bold text-gray-900 mb-3">
-                  {product.name}
-                </h1>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  {product.description || "No description available."}
-                </p>
-                <div className="flex items-center gap-4 mb-6">
-                  <span className="text-3xl font-bold text-gray-900">
-                    {priceLabel}
-                  </span>
-                  <span className="text-sm text-gray-600">
-                    {stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}
-                  </span>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={handleAddToCart}
-                    disabled={stockCount <= 0 || addingToCart}
-                    className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
-                      stockCount > 0 && !addingToCart
-                        ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg"
-                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    }`}
-                  >
-                    {stockCount > 0
-                      ? addingToCart
-                        ? "Adding..."
-                        : addedToCart
-                        ? "Added"
-                        : "Add to Cart"
-                      : "Out of Stock"}
-                  </button>
-                  <Link
-                    href="/components/customer?tab=shop"
-                    className="flex-1 px-6 py-3 border border-green-200 text-green-700 rounded-xl font-semibold text-center hover:bg-green-50 transition-all"
-                  >
-                    Back to Products
-                  </Link>
-                </div>
-
-                <div className="mt-8 border-t border-gray-200 pt-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    Product details of {product.name}
-                  </h2>
-                  <ul className="list-disc pl-5 text-sm text-gray-700 space-y-2">
-                    <li>Product Type: {product.category?.name || "Uncategorized"}</li>
-                    <li>Color: {product.color || "Not specified"}</li>
-                    <li>Main Material: {product.material || "Not specified"}</li>
-                    <li>Brand: {product.brand || "Not specified"}</li>
-                    <li>Size: {product.size || "Not specified"}</li>
-                    <li>Weight: {product.weight || "Not specified"}</li>
-                    <li>Dimensions: {product.dimensions || "Not specified"}</li>
-                    <li>Availability: {stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}</li>
-                  </ul>
-
-                  <div className="mt-6 border-t border-gray-200 pt-6">
-                    <h3 className="text-base font-semibold text-gray-900 mb-3">
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      Product details of {product.name}
+                    </h2>
+                    <h3 className="text-lg font-semibold text-gray-900 md:text-right">
                       Highlights
                     </h3>
                     <ul className="list-disc pl-5 text-sm text-gray-700 space-y-2">
+                      <li>Product Type: {product.category?.name || "Uncategorized"}</li>
+                      <li>Color: {product.color || "Not specified"}</li>
+                      <li>Main Material: {product.material || "Not specified"}</li>
+                      <li>Brand: {product.brand || "Not specified"}</li>
+                      <li>Size: {product.size || "Not specified"}</li>
+                      <li>Weight: {product.weight || "Not specified"}</li>
+                      <li>Dimensions: {product.dimensions || "Not specified"}</li>
+                      <li>Availability: {stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}</li>
+                    </ul>
+                    <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside pl-0 md:justify-self-end">
                       <li>{product.highlight_1 || "Quality build for everyday use"}</li>
                       <li>{product.highlight_2 || "Comfortable, reliable, and durable"}</li>
                       <li>{product.highlight_3 || "Designed to fit modern lifestyles"}</li>
@@ -283,6 +229,97 @@ export default function ProductDetailsPage({ params }) {
                   </div>
                 </div>
               </div>
+              <div>
+                <p className="text-sm text-green-600 font-semibold uppercase tracking-wide mb-2">
+                  {product.category?.name || "Uncategorized"}
+                </p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                  {product.name}
+                </h1>
+                <div className="flex items-center gap-4 mb-6">
+                  <span className="text-3xl font-bold text-gray-900">
+                    {priceLabel}
+                  </span>
+                  <span className="text-sm text-gray-600">
+                    {stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      Color
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(product.color || "Default").split(",").map((color) => (
+                        <span
+                          key={color.trim()}
+                          className="px-3 py-1 rounded-full border border-gray-200 text-xs font-semibold text-gray-700 bg-gray-50"
+                        >
+                          {color.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      Size
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(product.size || "Standard").split(",").map((size) => (
+                        <span
+                          key={size.trim()}
+                          className="px-3 py-1 rounded-full border border-gray-200 text-xs font-semibold text-gray-700 bg-gray-50"
+                        >
+                          {size.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 mb-6">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                    Delivery
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    Estimated delivery: Aug 12–14
+                  </p>
+                  <p className="text-sm text-gray-600">Shipping: $4.99</p>
+                </div>
+
+              </div>
+            </div>
+            <div className="mt-10 border-t border-gray-200 pt-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                Description
+              </h2>
+              <p className="text-gray-600 leading-relaxed">
+                {product.description || "No description available."}
+              </p>
+            </div>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleAddToCart}
+                disabled={stockCount <= 0 || addingToCart}
+                className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
+                  stockCount > 0 && !addingToCart
+                    ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+              >
+                {stockCount > 0
+                  ? addingToCart
+                    ? "Adding..."
+                    : addedToCart
+                    ? "Added"
+                    : "Add to Cart"
+                  : "Out of Stock"}
+              </button>
+              <Link
+                href="/components/customer?tab=shop"
+                className="flex-1 px-6 py-3 border border-green-200 text-green-700 rounded-xl font-semibold text-center hover:bg-green-50 transition-all"
+              >
+                Back to Products
+              </Link>
             </div>
           </div>
         )}

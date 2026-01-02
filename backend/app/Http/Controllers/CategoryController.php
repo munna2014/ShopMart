@@ -23,25 +23,30 @@ class CategoryController extends Controller
     public function publicIndex(): JsonResponse
     {
         $categories = Category::where('is_active', true)
+            ->select('id', 'name', 'slug', 'description', 'icon', 'color', 'is_active', 'sort_order')
             ->orderBy('sort_order')
-            ->get()
-            ->map(function (Category $category) {
-                $productCount = Product::where('category_id', $category->id)
-                    ->where('is_active', true)
-                    ->count();
+            ->get();
 
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'slug' => $category->slug,
-                    'description' => $category->description,
-                    'product_count' => $productCount,
-                    'icon' => $category->icon,
-                    'color' => $category->color,
-                    'is_active' => $category->is_active,
-                    'sort_order' => $category->sort_order,
-                ];
-            });
+        $productCounts = Product::where('is_active', true)
+            ->selectRaw('category_id, COUNT(*) as total')
+            ->groupBy('category_id')
+            ->pluck('total', 'category_id');
+
+        $categories = $categories->map(function (Category $category) use ($productCounts) {
+            $productCount = $productCounts[$category->id] ?? 0;
+
+            return [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'product_count' => $productCount,
+                'icon' => $category->icon,
+                'color' => $category->color,
+                'is_active' => $category->is_active,
+                'sort_order' => $category->sort_order,
+            ];
+        });
 
         return response()->json(['categories' => $categories]);
     }
@@ -49,23 +54,28 @@ class CategoryController extends Controller
     public function homeCategories(): JsonResponse
     {
         $categories = Category::where('is_active', true)
+            ->select('id', 'name', 'slug', 'description', 'icon', 'color', 'sort_order')
             ->orderBy('sort_order')
-            ->get()
-            ->map(function (Category $category) {
-                $productCount = Product::where('category_id', $category->id)
-                    ->where('is_active', true)
-                    ->count();
+            ->get();
 
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'slug' => $category->slug,
-                    'description' => $category->description,
-                    'count' => $productCount,
-                    'icon' => $category->icon,
-                    'color' => $category->color,
-                ];
-            });
+        $productCounts = Product::where('is_active', true)
+            ->selectRaw('category_id, COUNT(*) as total')
+            ->groupBy('category_id')
+            ->pluck('total', 'category_id');
+
+        $categories = $categories->map(function (Category $category) use ($productCounts) {
+            $productCount = $productCounts[$category->id] ?? 0;
+
+            return [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'count' => $productCount,
+                'icon' => $category->icon,
+                'color' => $category->color,
+            ];
+        });
 
         return response()->json(['categories' => $categories]);
     }

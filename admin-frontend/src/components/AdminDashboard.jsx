@@ -1,10 +1,8 @@
-"use client";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import api from "../lib/axios";
 
-import Link from "next/link";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/AuthContext";
-import api from "@/lib/axios";
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -12,8 +10,8 @@ export default function AdminDashboard() {
   const [showEditProduct, setShowEditProduct] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const { user, loading, isAuthenticated, isAdmin } = useAuth();
-  const router = useRouter();
+  const { user, loading, isAuthenticated, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
 
   // Form state for adding products
   const [productForm, setProductForm] = useState({
@@ -126,19 +124,35 @@ export default function AdminDashboard() {
     }
   };
 
-  // Fetch all data
-  const fetchAllData = async () => {
+  const loadActiveTab = async (tab) => {
     setDataLoading(true);
     try {
-      await Promise.all([
-        fetchDashboardData(),
-        fetchCustomers(),
-        fetchCategories(),
-        fetchProducts(),
-        fetchOrders(),
-      ]);
+      if (tab === "dashboard") {
+        await fetchDashboardData();
+        return;
+      }
+      if (tab === "products") {
+        const needsCategories = categories.length === 0;
+        const needsProducts = products.length === 0;
+        await Promise.all([
+          needsCategories ? fetchCategories() : Promise.resolve(),
+          needsProducts ? fetchProducts() : Promise.resolve(),
+        ]);
+        return;
+      }
+      if (tab === "orders") {
+        if (orders.length === 0) {
+          await fetchOrders();
+        }
+        return;
+      }
+      if (tab === "customers") {
+        if (customers.length === 0) {
+          await fetchCustomers();
+        }
+      }
     } catch (error) {
-      console.error('Error fetching admin data:', error);
+      console.error("Error fetching admin data:", error);
     } finally {
       setDataLoading(false);
     }
@@ -160,7 +174,8 @@ export default function AdminDashboard() {
         // Only redirect if we're certain about the authentication state
         if (!isAuthenticated) {
           console.log("Not authenticated, redirecting to login");
-          router.push("/login");
+          setDataLoading(false);
+          navigate("/login");
           return;
         }
         
@@ -171,13 +186,11 @@ export default function AdminDashboard() {
           if (!isAdmin()) {
             console.log("User is not admin, redirecting to login");
             alert("Access denied. Admin privileges required.");
-            router.push("/login");
+            setDataLoading(false);
+            navigate("/login");
             return;
           }
-          
-          // User is authenticated and is admin, fetch data
-          console.log("User is authenticated admin, fetching data");
-          fetchAllData();
+          console.log("User is authenticated admin");
         } else if (isAuthenticated && !user) {
           console.log("Authenticated but user data not loaded yet, waiting...");
           // Wait a bit more for user data to load
@@ -188,7 +201,13 @@ export default function AdminDashboard() {
       // Small delay to ensure state is stable after refresh
       setTimeout(checkAccess, 100);
     }
-  }, [loading, isAuthenticated, user, isAdmin, router]);
+  }, [loading, isAuthenticated, user, isAdmin, navigate]);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated && user && isAdmin()) {
+      loadActiveTab(activeTab);
+    }
+  }, [activeTab, loading, isAuthenticated, user, isAdmin]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -271,6 +290,70 @@ export default function AdminDashboard() {
   };
 
   // Handle form submission
+  const handleUpdateProduct = async () => {
+    if (!selectedProduct) return;
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        name: productForm.name.trim(),
+        description: productForm.description.trim() || null,
+        price: parseFloat(productForm.price),
+        stock_quantity: parseInt(productForm.stock_quantity),
+        category_id: productForm.category_id,
+      };
+
+      let response;
+
+      if (productForm.image) {
+        const formData = new FormData();
+        formData.append('name', payload.name);
+        formData.append('description', payload.description ?? '');
+        formData.append('price', payload.price);
+        formData.append('stock_quantity', payload.stock_quantity);
+        formData.append('category_id', payload.category_id);
+        formData.append('image', productForm.image);
+
+        response = await api.post(`/admin/products/${selectedProduct.id}?_method=PUT`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        response = await api.put(`/admin/products/${selectedProduct.id}`, payload);
+      }
+
+      if (response.data.status === 'success') {
+        const updatedProduct = response.data.data;
+        setProducts((prev) =>
+          prev.map((item) =>
+            String(item.id) === String(updatedProduct.id) ? updatedProduct : item
+          )
+        );
+        alert('Product updated successfully!');
+        closeModals();
+        await fetchProducts();
+      } else {
+        throw new Error(response.data.message || 'Failed to update product');
+      }
+    } catch (error) {
+      console.error('Error updating product:', error);
+
+      if (error.response?.data?.errors) {
+        setFormErrors(error.response.data.errors);
+      } else {
+        alert(error.response?.data?.message || 'Failed to update product. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleAddProduct = async () => {
     if (!validateForm()) {
       return;
@@ -300,7 +383,7 @@ export default function AdminDashboard() {
         formData.append('image', productForm.image);
       }
 
-      const response = await api.post('/products', formData, {
+      const response = await api.post('/admin/products', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -360,7 +443,7 @@ export default function AdminDashboard() {
   const handleDeleteProduct = async (id) => {
     if (confirm("Are you sure you want to delete this product?")) {
       try {
-        await api.delete(`/products/${id}`);
+        await api.delete(`/admin/products/${id}`);
         // Remove from local state
         setProducts(products.filter((p) => p.id !== id));
         // Refresh dashboard stats
@@ -394,8 +477,17 @@ export default function AdminDashboard() {
 
   const handleEditProduct = (product) => {
     setSelectedProduct(product);
+    setProductForm({
+      name: product?.name || '',
+      description: product?.description || '',
+      price: product?.price ?? '',
+      stock_quantity: product?.stock_quantity ?? '',
+      category_id: product?.category_id || product?.category?.id || '',
+      image: null
+    });
+    setFormErrors({});
+    setImagePreview(product?.image_url || null);
     setShowEditProduct(true);
-    setImagePreview(null);
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
@@ -507,12 +599,12 @@ export default function AdminDashboard() {
                   />
                 </svg>
               </button>
-              <Link
-                href="/"
+              <button
+                onClick={logout}
                 className="px-4 py-2 text-gray-700 hover:text-green-600 font-medium transition-colors"
               >
-                View Site
-              </Link>
+                Logout
+              </button>
             </div>
           </div>
         </div>
@@ -1551,7 +1643,8 @@ export default function AdminDashboard() {
                 </label>
                 <input
                   type="text"
-                  defaultValue={selectedProduct.name}
+                  value={productForm.name}
+                  onChange={(e) => handleFormChange('name', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
                 />
               </div>
@@ -1561,7 +1654,8 @@ export default function AdminDashboard() {
                     Category
                   </label>
                   <select
-                    defaultValue={selectedProduct.category}
+                    value={productForm.category_id}
+                    onChange={(e) => handleFormChange('category_id', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
                   >
                     <option value="">Select a category</option>
@@ -1577,8 +1671,11 @@ export default function AdminDashboard() {
                     Price
                   </label>
                   <input
-                    type="text"
-                    defaultValue={selectedProduct.price}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={productForm.price}
+                    onChange={(e) => handleFormChange('price', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
                   />
                 </div>
@@ -1589,7 +1686,9 @@ export default function AdminDashboard() {
                 </label>
                 <input
                   type="number"
-                  defaultValue={selectedProduct.stock}
+                  min="0"
+                  value={productForm.stock_quantity}
+                  onChange={(e) => handleFormChange('stock_quantity', e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
                 />
               </div>
@@ -1602,10 +1701,11 @@ export default function AdminDashboard() {
                 Cancel
               </button>
               <button
-                onClick={closeModals}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                onClick={handleUpdateProduct}
+                disabled={isSubmitting}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Save Changes
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

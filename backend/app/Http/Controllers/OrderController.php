@@ -18,7 +18,17 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $orders = Order::with(['items.product'])
+        $orders = Order::select('id', 'user_id', 'status', 'total_amount', 'currency', 'created_at')
+            ->with([
+                'items' => function ($query) {
+                    $query->select('id', 'order_id', 'product_id', 'quantity', 'unit_price', 'total_price')
+                        ->with([
+                            'product' => function ($productQuery) {
+                                $productQuery->select('id', 'name', 'price', 'image_url');
+                            },
+                        ]);
+                },
+            ])
             ->where('user_id', $request->user()->id)
             ->orderBy('created_at', 'desc')
             ->get();

@@ -14,6 +14,7 @@ export default function CustomerView({ customer: initialCustomer }) {
   const [customer, setCustomer] = useState(initialCustomer);
 
   const [activeTab, setActiveTab] = useState("profile");
+  const [tabMenuOpen, setTabMenuOpen] = useState(false);
   const [profilePicture, setProfilePicture] = useState(null);
   const [cart, setCart] = useState([]);
   const [products, setProducts] = useState([]);
@@ -220,6 +221,36 @@ export default function CustomerView({ customer: initialCustomer }) {
     return status || "Pending";
   };
 
+  const tabs = [
+    {
+      id: "profile",
+      label: "Personal Info",
+      icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
+    },
+    {
+      id: "orders",
+      label: "Orders",
+      icon: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z",
+    },
+    {
+      id: "shop",
+      label: "Shop",
+      icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 3 3 0 014 0z",
+    },
+    {
+      id: "addresses",
+      label: "Addresses",
+      icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+    },
+  ];
+
+  const activeTabLabel = tabs.find((tab) => tab.id === activeTab)?.label || "Menu";
+
   // Initialize profile form with customer data
   useEffect(() => {
     setProfileForm({
@@ -317,9 +348,9 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
-  const fetchOrders = async () => {
+  const fetchOrders = async ({ force = false } = {}) => {
     try {
-      if (ordersLoading || ordersLoaded) {
+      if (ordersLoading || (!force && ordersLoaded)) {
         return;
       }
       setOrdersLoading(true);
@@ -693,26 +724,28 @@ export default function CustomerView({ customer: initialCustomer }) {
     setCancellingOrders((prev) => ({ ...prev, [orderId]: true }));
     try {
       await api.patch(`/orders/${orderId}/cancel`);
-      await fetchOrders();
+      await fetchOrders({ force: true });
     } catch (error) {
       console.error("Error cancelling order:", error);
-      alert(error.response?.data?.message || "Failed to cancel order.");
+      const statusError = error.response?.data?.errors?.status?.[0];
+      alert(statusError || error.response?.data?.message || "Failed to cancel order.");
+      await fetchOrders({ force: true });
     } finally {
       setCancellingOrders((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
-                  className="w-7 h-7 text-white"
+                  className="w-6 h-6 md:w-7 md:h-7 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -725,34 +758,94 @@ export default function CustomerView({ customer: initialCustomer }) {
                   />
                 </svg>
               </div>
-              <span className="text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
 
-            {/* Right Side - Sign Out */}
+            {/* Right Side - Menu */}
             <div className="flex items-center gap-4">
-              <button
-                onClick={handleSignOut}
-                className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
-              >
-                Sign Out
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setTabMenuOpen((prev) => !prev)}
+                  className="p-2 text-green-600 hover:text-green-700 transition-colors"
+                  aria-label="Open menu"
+                  aria-expanded={tabMenuOpen}
+                  aria-haspopup="menu"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {tabMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => {
+                          setActiveTab(tab.id);
+                          setTabMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors ${
+                          activeTab === tab.id
+                            ? "bg-green-50 text-green-700"
+                            : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            d={tab.icon}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        {tab.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        setTabMenuOpen(false);
+                        handleSignOut();
+                      }}
+                      className="w-full text-left px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </nav>
 
       {/* Profile Header */}
-      <div className="pt-20">
-        <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div className="flex flex-col md:flex-row items-center gap-6">
+      <div className="pt-16 md:pt-20">
+        <div className="relative overflow-hidden bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white">
+          <div className="absolute inset-0 opacity-30">
+            <div className="absolute -top-10 -left-10 w-48 h-48 bg-white/20 rounded-full blur-2xl"></div>
+            <div className="absolute top-10 right-8 w-56 h-56 bg-white/10 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+          </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
+            <div className="flex flex-col md:flex-row items-center gap-8">
               <div className="relative group">
                 <img
                   src={profilePicture || customer.avatar}
                   alt={customer.name}
-                  className="w-32 h-32 rounded-full border-4 border-white shadow-xl bg-white"
+                  className="w-32 h-32 rounded-full border-4 border-white shadow-2xl bg-white ring-4 ring-white/20"
                 />
                 {profilePictureUploading && (
                   <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
@@ -761,7 +854,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                 )}
                 <label
                   htmlFor="profile-picture-upload"
-                  className={`absolute bottom-0 right-0 bg-white text-green-600 p-2 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 ${
+                  className={`absolute bottom-0 right-0 bg-white text-green-600 p-2.5 rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 ${
                     profilePictureUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                   }`}
                 >
@@ -795,28 +888,31 @@ export default function CustomerView({ customer: initialCustomer }) {
               </div>
 
               <div className="text-center md:text-left flex-1">
-                <h1 className="text-3xl font-black mb-2">{customer.name}</h1>
-                <p className="text-white/90 mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 border border-white/20 text-xs uppercase tracking-wide mb-3">
+                  Premium Member
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black mb-2">{customer.name}</h1>
+                <p className="text-white/90 mb-4 sm:mb-5 text-sm sm:text-base">
                   Member since {customer.joinDate}
                 </p>
                 <div className="flex flex-wrap gap-4 justify-center md:justify-start">
-                  <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                    <div className="text-2xl font-bold">
+                  <div className="bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl shadow-lg">
+                    <div className="text-xl sm:text-2xl font-bold">
                       {customer.totalOrders}
                     </div>
-                    <div className="text-sm text-white/80">Orders</div>
+                    <div className="text-xs uppercase tracking-wide text-white/80">Orders</div>
                   </div>
-                  <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                    <div className="text-2xl font-bold">
+                  <div className="bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl shadow-lg">
+                    <div className="text-xl sm:text-2xl font-bold">
                       {customer.totalSpent}
                     </div>
-                    <div className="text-sm text-white/80">Total Spent</div>
+                    <div className="text-xs uppercase tracking-wide text-white/80">Total Spent</div>
                   </div>
-                  <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                    <div className="text-2xl font-bold">
+                  <div className="bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl shadow-lg">
+                    <div className="text-xl sm:text-2xl font-bold">
                       {customer.loyaltyPoints}
                     </div>
-                    <div className="text-sm text-white/80">Points</div>
+                    <div className="text-xs uppercase tracking-wide text-white/80">Points</div>
                   </div>
                 </div>
               </div>
@@ -825,85 +921,35 @@ export default function CustomerView({ customer: initialCustomer }) {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white border-b border-gray-200 sticky top-20 z-40 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex gap-8 overflow-x-auto">
-              {[
-                {
-                  id: "profile",
-                  label: "Profile",
-                  icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
-                },
-                {
-                  id: "orders",
-                  label: "Orders",
-                  icon: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z",
-                },
-                {
-                  id: "shop",
-                  label: "Shop",
-                  icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z",
-                },
-                {
-                  id: "addresses",
-                  label: "Addresses",
-                  icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
-                },
-                {
-                  id: "settings",
-                  label: "Settings",
-                  icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
-                },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 py-4 px-2 border-b-2 font-medium transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? "border-green-600 text-green-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path
-                      d={tab.icon}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  {tab.label}
-                </button>
-              ))}
+        <div className="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-16 md:top-20 z-40 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="text-2xl font-bold text-gray-900">
+              {activeTabLabel}
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {/* Profile Tab */}
           {activeTab === "profile" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white border border-gray-100 rounded-2xl shadow-xl p-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-2xl p-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                     Personal Information
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block font-bold text-gray-600 mb-2">
+                      <label className="block font-semibold text-gray-600 mb-2">
                         Full Name *
                       </label>
                       <input
                         type="text"
                         value={profileForm.full_name}
                         onChange={(e) => handleProfileFormChange('full_name', e.target.value)}
-                        className={`w-full bg-gray-50 border text-gray-900 px-4 py-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all placeholder-gray-400 ${
+                        className={`w-full bg-gray-50 border text-gray-900 px-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all placeholder-gray-400 ${
                           profileErrors.full_name ? 'border-red-500' : 'border-gray-200'
                         }`}
                         placeholder="Enter your full name"
@@ -913,7 +959,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                       )}
                     </div>
                     <div>
-                      <label className="block font-bold text-gray-600 mb-2">
+                      <label className="block font-semibold text-gray-600 mb-2">
                         Email Address
                       </label>
                       <input
@@ -926,14 +972,14 @@ export default function CustomerView({ customer: initialCustomer }) {
                       <p className="text-gray-500 text-xs mt-1">Email address cannot be changed</p>
                     </div>
                     <div>
-                      <label className="block font-bold text-gray-600 mb-2">
+                      <label className="block font-semibold text-gray-600 mb-2">
                         Phone Number
                       </label>
                       <input
                         type="tel"
                         value={profileForm.phone}
                         onChange={(e) => handleProfileFormChange('phone', e.target.value)}
-                        className={`w-full bg-gray-50 border text-gray-900 px-4 py-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all placeholder-gray-400 ${
+                        className={`w-full bg-gray-50 border text-gray-900 px-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all placeholder-gray-400 ${
                           profileErrors.phone ? 'border-red-500' : 'border-gray-200'
                         }`}
                         placeholder="Enter your phone number"
@@ -943,14 +989,14 @@ export default function CustomerView({ customer: initialCustomer }) {
                       )}
                     </div>
                     <div>
-                      <label className="block font-bold text-gray-600 mb-2">
+                      <label className="block font-semibold text-gray-600 mb-2">
                         Date of Birth
                       </label>
                       <input
                         type="date"
                         value={profileForm.date_of_birth}
                         onChange={(e) => handleProfileFormChange('date_of_birth', e.target.value)}
-                        className={`w-full bg-gray-50 border text-gray-900 px-4 py-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all placeholder-gray-400 ${
+                        className={`w-full bg-gray-50 border text-gray-900 px-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all placeholder-gray-400 ${
                           profileErrors.date_of_birth ? 'border-red-500' : 'border-gray-200'
                         }`}
                       />
@@ -979,7 +1025,8 @@ export default function CustomerView({ customer: initialCustomer }) {
               </div>
 
               <div className="space-y-6">
-                <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-2xl shadow-lg p-6 text-white">
+                <div className="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl shadow-2xl p-6 text-white relative overflow-hidden">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
                   <h3 className="text-xl font-bold mb-4">Loyalty Rewards</h3>
                   <div className="text-4xl font-bold mb-2">
                     {customer.loyaltyPoints}
@@ -1014,19 +1061,19 @@ export default function CustomerView({ customer: initialCustomer }) {
                 </h2>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[640px]">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">
                         Order ID
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 hidden sm:table-cell">
                         Date
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">
                         Status
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 hidden md:table-cell">
                         Items
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">
@@ -1044,13 +1091,13 @@ export default function CustomerView({ customer: initialCustomer }) {
                           <td className="px-6 py-4">
                             <div className="h-4 bg-gray-200 rounded w-24"></div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 hidden sm:table-cell">
                             <div className="h-4 bg-gray-200 rounded w-20"></div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="h-4 bg-gray-200 rounded w-16"></div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 hidden md:table-cell">
                             <div className="h-4 bg-gray-200 rounded w-14"></div>
                           </td>
                           <td className="px-6 py-4">
@@ -1088,7 +1135,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                               <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                 {`#ORD-${String(order.id).padStart(5, "0")}`}
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-500">
+                              <td className="px-6 py-4 text-sm text-gray-500 hidden sm:table-cell">
                                 {orderDate}
                               </td>
                               <td className="px-6 py-4">
@@ -1106,7 +1153,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                                   {statusLabel}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-500">
+                              <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell">
                                 {itemCount} items
                               </td>
                               <td className="px-6 py-4 text-sm font-semibold text-gray-900">

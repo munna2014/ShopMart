@@ -114,11 +114,11 @@ export default function ProductDetailsPage() {
     <div className="min-h-screen bg-gray-50">
       <nav className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
-                  className="w-6 h-6 text-white"
+                  className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -131,7 +131,7 @@ export default function ProductDetailsPage() {
                   />
                 </svg>
               </div>
-              <span className="text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -145,7 +145,7 @@ export default function ProductDetailsPage() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-12">
         {productLoading ? (
           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8 animate-pulse">
             <div className="h-10 bg-gray-200 rounded w-1/3 mb-6"></div>
@@ -176,8 +176,8 @@ export default function ProductDetailsPage() {
             </Link>
           </div>
         ) : (
-          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 sm:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
               <div className="relative">
                 <img
                   src={product.image_url || product.image || "/images/default-product.svg"}
@@ -217,7 +217,7 @@ export default function ProductDetailsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 border-t border-gray-200 pt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+                <div className="mt-6 border-t border-gray-200 pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
                     <div>
                       <span className="font-semibold text-gray-900">Brand</span>
                       <div>{product.brand || "No brand"}</div>
@@ -233,11 +233,11 @@ export default function ProductDetailsPage() {
                 <p className="text-sm text-green-600 font-semibold uppercase tracking-wide mb-2">
                   {product.category?.name || "Uncategorized"}
                 </p>
-                <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
                   {product.name}
                 </h1>
-                <div className="flex items-center gap-4 mb-6">
-                  <span className="text-3xl font-bold text-gray-900">
+                <div className="flex flex-wrap items-center gap-4 mb-6">
+                  <span className="text-2xl sm:text-3xl font-bold text-gray-900">
                     {priceLabel}
                   </span>
                   <span className="text-sm text-gray-600">

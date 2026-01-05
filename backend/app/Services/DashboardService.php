@@ -12,6 +12,28 @@ use Illuminate\Support\Facades\DB;
 class DashboardService
 {
     /**
+     * Lightweight stats for public home page.
+     */
+    public function getHomeStats(): array
+    {
+        $totalProducts = Product::count();
+        $totalCustomers = User::whereHas('roles', function($query) {
+            $query->where('name', 'customer');
+        })->count();
+
+        $totalOrders = 0;
+        if ($this->tableExists('orders')) {
+            $totalOrders = Order::count();
+        }
+
+        return [
+            'total_products' => $totalProducts,
+            'total_customers' => $totalCustomers,
+            'total_orders' => $totalOrders,
+        ];
+    }
+
+    /**
      * Get comprehensive dashboard statistics
      */
     public function getDashboardStats(): array
@@ -48,11 +70,11 @@ class DashboardService
             $pendingOrders = Order::where('status', 'PENDING')->count();
             $completedOrders = Order::where('status', 'DELIVERED')->count();
             
-            // Calculate revenue
-            $totalRevenue = Order::where('status', 'DELIVERED')
+            // Calculate revenue from fulfilled orders
+            $totalRevenue = Order::whereIn('status', ['PAID', 'SHIPPED', 'DELIVERED'])
                 ->sum('total_amount') ?? 0;
             
-            $monthlyRevenue = Order::where('status', 'DELIVERED')
+            $monthlyRevenue = Order::whereIn('status', ['PAID', 'SHIPPED', 'DELIVERED'])
                 ->whereMonth('created_at', now()->month)
                 ->whereYear('created_at', now()->year)
                 ->sum('total_amount') ?? 0;

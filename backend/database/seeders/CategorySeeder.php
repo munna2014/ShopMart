@@ -41,7 +41,7 @@ class CategorySeeder extends Seeder
                 'name' => 'Sports & Outdoors',
                 'slug' => 'sports-outdoors',
                 'description' => 'Sports equipment and outdoor gear',
-                'icon' => 'M9 21a1 1 0 100-2 1 1 0 000 2zM20 21a1 1 0 100-2 1 1 0 000 2zM1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6',
+                'icon' => 'M5 20h14l-7-14-7 14zM7 16l5-8 5 8M9 14h6',
                 'color' => 'from-orange-500 to-orange-600',
                 'sort_order' => 4,
             ],

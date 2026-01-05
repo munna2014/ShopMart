@@ -9,7 +9,7 @@ class HomeController extends Controller
 {
     public function stats(DashboardService $dashboardService): JsonResponse
     {
-        $stats = $dashboardService->getDashboardStats();
+        $stats = $dashboardService->getHomeStats();
 
         return response()->json([
             'total_products' => $stats['total_products'],

@@ -155,11 +155,11 @@ export default function CartPage() {
     <div className="min-h-screen bg-gray-50">
       <nav className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             <Link href="/components/customer" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
-                  className="w-6 h-6 text-white"
+                  className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -172,7 +172,7 @@ export default function CartPage() {
                   />
                 </svg>
               </div>
-              <span className="text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -186,9 +186,9 @@ export default function CartPage() {
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-xl p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Shopping Cart</h1>
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-12">
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-xl p-4 sm:p-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">Shopping Cart</h1>
 
           {cartLoading ? (
             <div className="space-y-4">
@@ -217,7 +217,7 @@ export default function CartPage() {
                   return (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between gap-4 p-4 border border-gray-200 rounded-xl"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-gray-200 rounded-xl"
                   >
                     <Link
                       href={`/productDetails/${item.id}`}
@@ -238,7 +238,7 @@ export default function CartPage() {
                       </div>
                     </Link>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}

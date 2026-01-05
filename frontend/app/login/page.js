@@ -23,7 +23,7 @@ export default function Login() {
         router.push("/components/admin");
       } else {
         const redirectTo = searchParams.get("redirect");
-        router.push(redirectTo || "/components/customer");
+        router.push(redirectTo || "/");
       }
     }
   }, [isAuthenticated, router, isAdmin, searchParams]);
@@ -70,7 +70,7 @@ export default function Login() {
           router.push("/components/admin");
         } else {
           const redirectTo = searchParams.get("redirect");
-          router.push(redirectTo || "/components/customer");
+          router.push(redirectTo || "/");
         }
       } else {
         setErrors({ general: [result.error] });

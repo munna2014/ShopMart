@@ -34,6 +34,8 @@ class CategoryController extends Controller
 
         $categories = $categories->map(function (Category $category) use ($productCounts) {
             $productCount = $productCounts[$category->id] ?? 0;
+            $icon = $category->icon ?: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4';
+            $color = $category->color ?: 'from-green-500 to-emerald-600';
 
             return [
                 'id' => $category->id,
@@ -41,8 +43,8 @@ class CategoryController extends Controller
                 'slug' => $category->slug,
                 'description' => $category->description,
                 'product_count' => $productCount,
-                'icon' => $category->icon,
-                'color' => $category->color,
+                'icon' => $icon,
+                'color' => $color,
                 'is_active' => $category->is_active,
                 'sort_order' => $category->sort_order,
             ];
@@ -65,6 +67,8 @@ class CategoryController extends Controller
 
         $categories = $categories->map(function (Category $category) use ($productCounts) {
             $productCount = $productCounts[$category->id] ?? 0;
+            $icon = $category->icon ?: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4';
+            $color = $category->color ?: 'from-green-500 to-emerald-600';
 
             return [
                 'id' => $category->id,
@@ -72,8 +76,8 @@ class CategoryController extends Controller
                 'slug' => $category->slug,
                 'description' => $category->description,
                 'count' => $productCount,
-                'icon' => $category->icon,
-                'color' => $category->color,
+                'icon' => $icon,
+                'color' => $color,
             ];
         });
 

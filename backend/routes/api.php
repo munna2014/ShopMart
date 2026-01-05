@@ -18,7 +18,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 // Public routes for home page
 Route::get('/home/stats', function () {
     $dashboardService = app(\App\Services\DashboardService::class);
-    $stats = $dashboardService->getDashboardStats();
+    $stats = $dashboardService->getHomeStats();
 
     return response()->json([
         'total_products' => $stats['total_products'],

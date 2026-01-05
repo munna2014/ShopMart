@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import { addGuestItem } from "@/lib/guestCart";
 
 export default function ProductsPage() {
   const { user, isAuthenticated } = useAuth();
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,6 +18,13 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState('name');
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [addingToCart, setAddingToCart] = useState({});
+
+  useEffect(() => {
+    const query = searchParams.get("search");
+    if (query) {
+      setSearchTerm(query);
+    }
+  }, [searchParams]);
 
   // Fetch products and categories
   useEffect(() => {
@@ -111,12 +120,12 @@ export default function ProductsPage() {
       {/* Navigation */}
       <nav className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
-                  className="w-6 h-6 text-white"
+                  className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -177,17 +186,17 @@ export default function ProductsPage() {
       {/* Page Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">All Products</h1>
-          <p className="text-gray-600">Discover our complete collection of quality products</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">All Products</h1>
+          <p className="text-sm sm:text-base text-gray-600">Discover our complete collection of quality products</p>
         </div>
       </div>
 
       {/* Filters and Search */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Search */}
-            <div className="md:col-span-2">
+            <div className="lg:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Search Products
               </label>
@@ -197,7 +206,7 @@ export default function ProductsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search by name, description, or category..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none text-sm"
                 />
                 <svg
                   className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
@@ -220,7 +229,7 @@ export default function ProductsPage() {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none text-sm"
               >
                 <option value="">All Categories</option>
                 {categories.map((category) => (
@@ -239,7 +248,7 @@ export default function ProductsPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none text-sm"
               >
                 <option value="name">Name (A-Z)</option>
                 <option value="price-low">Price (Low to High)</option>
@@ -251,7 +260,7 @@ export default function ProductsPage() {
 
           {/* Results Count */}
           <div className="mt-4 pt-4 border-t">
-            <p className="text-sm text-gray-600">
+            <p className="text-xs sm:text-sm text-gray-600">
               Showing {filteredProducts.length} of {products.length} products
               {searchTerm && ` for "${searchTerm}"`}
               {selectedCategory && ` in "${selectedCategory}"`}
@@ -261,7 +270,7 @@ export default function ProductsPage() {
 
         {/* Products Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {Array.from({ length: 8 }).map((_, index) => (
               <div key={index} className="bg-white rounded-lg shadow-sm border animate-pulse">
                 <div className="aspect-square bg-gray-200"></div>
@@ -310,7 +319,7 @@ export default function ProductsPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {filteredProducts.map((product) => (
               <div
                 key={product.id}

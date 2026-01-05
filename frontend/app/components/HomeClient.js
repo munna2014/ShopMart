@@ -17,6 +17,7 @@ export default function HomeClient() {
   const { logout, isAuthenticated, user, loading } = useAuth();
   const [currentImageSet, setCurrentImageSet] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   
   // State for real data
   const [stats, setStats] = useState({
@@ -27,8 +28,10 @@ export default function HomeClient() {
   const [categories, setCategories] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [statsReady, setStatsReady] = useState(false);
   const [addingToCart, setAddingToCart] = useState({});
   const [cartItems, setCartItems] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Image sets for rotation
   const imageSets = [
@@ -67,13 +70,19 @@ export default function HomeClient() {
         api.get('/home/featured-products')
       ]);
       
-      setStats(statsRes.data || { total_products: 0, total_customers: 0, total_orders: 0 });
+      const nextStats = statsRes.data || { total_products: 0, total_customers: 0, total_orders: 0 };
+      setStats(nextStats);
+      setStatsReady(true);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("home_stats_cache", JSON.stringify(nextStats));
+      }
       setCategories(categoriesRes.data.categories || []);
       setFeaturedProducts(productsRes.data.products || []);
     } catch (error) {
       console.error('Error fetching home data:', error);
       // Set fallback data on error
       setStats({ total_products: 0, total_customers: 0, total_orders: 0 });
+      setStatsReady(true);
       setCategories([]);
       setFeaturedProducts([]);
     } finally {
@@ -83,6 +92,18 @@ export default function HomeClient() {
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined") {
+      const cachedStats = localStorage.getItem("home_stats_cache");
+      if (cachedStats) {
+        try {
+          const parsed = JSON.parse(cachedStats);
+          setStats(parsed);
+          setStatsReady(true);
+        } catch (error) {
+          console.error("Failed to parse cached stats:", error);
+        }
+      }
+    }
     fetchHomeData();
   }, []);
 
@@ -108,6 +129,13 @@ export default function HomeClient() {
       // Force page refresh as fallback
       window.location.reload();
     }
+  };
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const trimmed = searchQuery.trim();
+    const target = trimmed ? `/products?search=${encodeURIComponent(trimmed)}` : "/products";
+    router.push(target);
   };
 
   const fetchCart = async () => {
@@ -210,12 +238,12 @@ export default function HomeClient() {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="flex items-center gap-4 h-16 md:h-20">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
-                  className="w-7 h-7 text-white"
+                  className="w-6 h-6 md:w-7 md:h-7 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -228,13 +256,13 @@ export default function HomeClient() {
                   />
                 </svg>
               </div>
-              <span className="text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
+            <div className="hidden md:flex items-center gap-8 flex-1 justify-center">
               <a
                 href="#categories"
                 className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
@@ -255,28 +283,112 @@ export default function HomeClient() {
               </a>
             </div>
 
+            {/* Desktop Search */}
+            <form
+              onSubmit={handleSearchSubmit}
+              className="hidden lg:flex items-center gap-2 w-56 xl:w-72"
+            >
+              <div className="flex-1 relative">
+                <svg
+                  className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search products..."
+                  className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 placeholder-gray-400"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-semibold hover:bg-gray-800 transition-colors"
+              >
+                Search
+              </button>
+            </form>
+
             {/* Right Side - Auth Buttons */}
-            <div className="flex items-center gap-4">
-              {loading ? (
-                // Loading state
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-8 bg-gray-200 rounded animate-pulse"></div>
-                  <div className="w-20 h-10 bg-gray-200 rounded-xl animate-pulse"></div>
-                </div>
-              ) : isAuthenticated ? (
+            <div className="flex items-center gap-4 ml-auto">
+              {loading ? null : isAuthenticated ? (
                 <>
-                  <Link
-                    href="/components/customer"
-                    className="px-6 py-2.5 text-green-600 font-semibold hover:text-green-700 transition-colors"
-                  >
-                    Profile
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
-                  >
-                    Sign Out
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setMenuOpen((prev) => !prev)}
+                      className="p-2 text-green-600 hover:text-green-700 transition-colors"
+                      aria-label="Open menu"
+                      aria-expanded={menuOpen}
+                      aria-haspopup="menu"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    {menuOpen && (
+                      <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                        <Link
+                          href="/components/customer?tab=profile"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Personal Info
+                        </Link>
+                        <Link
+                          href="/components/customer?tab=orders"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Orders
+                        </Link>
+                        <Link
+                          href="/components/customer?tab=shop"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Shop
+                        </Link>
+                        <Link
+                          href="/components/customer?tab=addresses"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Addresses
+                        </Link>
+                        <Link
+                          href="/components/customer?tab=settings"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Settings
+                        </Link>
+                        <button
+                          onClick={() => {
+                            setMenuOpen(false);
+                            handleSignOut();
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
@@ -300,14 +412,14 @@ export default function HomeClient() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-28 md:pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         {/* Clean Background with Rotating Images */}
         <div className="absolute inset-0 bg-white">
           {/* Background Images Layer */}
           <div className="absolute inset-0 opacity-60">
             {/* Shopping Image 1 - Top Left */}
             <div
-              className="absolute top-0 left-0 w-96 h-96 bg-cover bg-center rounded-full blur-sm animate-float-slow transition-all duration-1000"
+              className="absolute top-0 left-0 w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96 bg-cover bg-center rounded-full blur-sm animate-float-slow transition-all duration-1000 hidden sm:block"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][0]})`,
               }}
@@ -315,7 +427,7 @@ export default function HomeClient() {
 
             {/* Shopping Image 2 - Top Right */}
             <div
-              className="absolute top-20 right-10 w-80 h-80 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-2000 transition-all duration-1000"
+              className="absolute top-20 right-10 w-60 h-60 sm:w-72 sm:h-72 lg:w-80 lg:h-80 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-2000 transition-all duration-1000 hidden sm:block"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][1]})`,
               }}
@@ -323,7 +435,7 @@ export default function HomeClient() {
 
             {/* Shopping Image 3 - Bottom Left */}
             <div
-              className="absolute bottom-10 left-20 w-72 h-72 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-4000 transition-all duration-1000"
+              className="absolute bottom-10 left-10 w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-4000 transition-all duration-1000 hidden md:block"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][2]})`,
               }}
@@ -331,7 +443,7 @@ export default function HomeClient() {
 
             {/* Shopping Image 4 - Bottom Right */}
             <div
-              className="absolute bottom-20 right-32 w-64 h-64 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-3000 transition-all duration-1000"
+              className="absolute bottom-20 right-20 w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-3000 transition-all duration-1000 hidden md:block"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][3]})`,
               }}
@@ -339,7 +451,7 @@ export default function HomeClient() {
 
             {/* Shopping Image 5 - Center */}
             <div
-              className="absolute top-1/3 left-1/3 w-56 h-56 bg-cover bg-center rounded-full blur-sm animate-blob transition-all duration-1000"
+              className="absolute top-1/3 left-1/3 w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 bg-cover bg-center rounded-full blur-sm animate-blob transition-all duration-1000 hidden sm:block"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][4]})`,
               }}
@@ -371,7 +483,7 @@ export default function HomeClient() {
             </div>
 
             {/* Title */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
               Shop Smarter,
               <span className="block bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
                 Live Better
@@ -379,16 +491,16 @@ export default function HomeClient() {
             </h1>
 
             {/* Description */}
-            <p className="text-xl text-black mb-10 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg lg:text-xl text-black mb-10 max-w-2xl mx-auto leading-relaxed">
               Discover thousands of premium products from trusted brands. Fast
               shipping, secure payments, and unbeatable prices.
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
               <Link
                 href="#featured"
-                className="group px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
+                className="group w-full sm:w-auto justify-center px-7 py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
               >
                 Shop Now
                 <svg
@@ -409,24 +521,24 @@ export default function HomeClient() {
 
               <a
                 href="#categories"
-                className="px-8 py-4 bg-white text-gray-700 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all border-2 border-gray-200"
+                className="w-full sm:w-auto text-center px-7 py-3.5 bg-white text-gray-700 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all border-2 border-gray-200"
               >
                 Browse Categories
               </a>
             </div>
 
             {/* Stats */}
-            <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12">
+            <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-12">
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">
-                  {dataLoading ? "..." : stats.total_products || "0"}
+                <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  {dataLoading && !statsReady ? "..." : stats.total_products || "0"}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">Products</div>
               </div>
               <div className="hidden sm:block w-px h-12 bg-gray-300"></div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">
-                  {dataLoading ? "..." : stats.total_customers || "0"}
+                <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  {dataLoading && !statsReady ? "..." : stats.total_customers || "0"}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">
                   Happy Customers
@@ -490,36 +602,61 @@ export default function HomeClient() {
                 </div>
               </div>
             ) : (
-              categories.map((category, index) => (
-              <div
-                key={index}
-                className="group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer border border-gray-100"
-              >
-                <div
-                  className={`w-16 h-16 bg-gradient-to-br ${category.color} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg`}
-                >
-                  <svg
-                    className="w-8 h-8 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
+              categories.map((category, index) => {
+                const rawIcon = typeof category.icon === "string" ? category.icon.trim() : "";
+                const rawColor = typeof category.color === "string" ? category.color.trim() : "";
+                const iconIsInvalid =
+                  rawIcon === "" ||
+                  rawIcon === "null" ||
+                  rawIcon === "undefined" ||
+                  rawIcon.includes("<");
+                const iconPath = iconIsInvalid
+                  ? "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                  : rawIcon;
+                const allowedGradients = new Set([
+                  "from-purple-500 to-purple-600",
+                  "from-blue-500 to-blue-600",
+                  "from-green-500 to-green-600",
+                  "from-green-500 to-emerald-600",
+                  "from-orange-500 to-orange-600",
+                  "from-pink-500 to-rose-500",
+                  "from-teal-500 to-emerald-500",
+                ]);
+                const colorClass = allowedGradients.has(rawColor)
+                  ? rawColor
+                  : "from-green-500 to-emerald-600";
+
+                return (
+                  <div
+                    key={index}
+                    className="group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer border border-gray-100"
                   >
-                    <path
-                      d={category.icon}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  {category.name}
-                </h3>
-                <p className="text-gray-600 font-medium">
-                  {category.count || 0} items
-                </p>
-              </div>
-              ))
+                    <div
+                      className={`w-16 h-16 bg-gradient-to-br ${colorClass} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg`}
+                    >
+                      <svg
+                        className="w-8 h-8 text-white"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path
+                          d={iconPath}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      {category.name}
+                    </h3>
+                    <p className="text-gray-600 font-medium">
+                      {category.count || 0} items
+                    </p>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

@@ -125,11 +125,11 @@ export default function CheckoutPage() {
       {/* Top Bar */}
       <nav className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             <Link href="/components/customer" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
-                  className="w-6 h-6 text-white"
+                  className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -142,7 +142,7 @@ export default function CheckoutPage() {
                   />
                 </svg>
               </div>
-              <span className="text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -156,11 +156,11 @@ export default function CheckoutPage() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
-        <div className="flex items-center justify-between mb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-12">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <p className="text-sm text-gray-500">Step 2 of 2</p>
-            <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Checkout</h1>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-600">
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
@@ -191,14 +191,14 @@ export default function CheckoutPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold text-gray-900">Items</h2>
                   <span className="text-sm text-gray-500">{cart.length} products</span>
                 </div>
                 <div className="divide-y divide-gray-100">
                   {cart.map((item) => (
-                    <div key={item.id} className="py-4 flex items-center justify-between gap-4">
+                    <div key={item.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <img
                           src={item.image || "/images/default-product.svg"}
@@ -223,7 +223,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold text-gray-900">Delivery Address</h2>
                   <Link
@@ -255,7 +255,7 @@ export default function CheckoutPage() {
                     {addresses.map((address) => (
                       <label
                         key={address.id}
-                        className={`flex gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
+                        className={`flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
                           selectedAddressId === address.id
                             ? "border-green-500 bg-green-50"
                             : "border-gray-200 hover:border-green-200"
@@ -270,7 +270,7 @@ export default function CheckoutPage() {
                           className="mt-1 text-green-600 focus:ring-green-500"
                         />
                         <div className="flex-1">
-                          <div className="flex items-center gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-gray-900">{address.full_name}</h3>
                             {address.is_default && (
                               <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full font-semibold">
@@ -293,7 +293,7 @@ export default function CheckoutPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Order Summary</h2>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
@@ -312,7 +312,7 @@ export default function CheckoutPage() {
                 <button
                   onClick={handlePlaceOrder}
                   disabled={!selectedAddressId || placingOrder}
-                  className="w-full mt-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full mt-6 py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {placingOrder ? "Placing Order..." : "Order"}
                 </button>

@@ -146,6 +146,12 @@ export default function AdminDashboard() {
         }
         return;
       }
+      if (tab === "tracking") {
+        if (orders.length === 0) {
+          await fetchOrders();
+        }
+        return;
+      }
       if (tab === "customers") {
         if (customers.length === 0) {
           await fetchCustomers();

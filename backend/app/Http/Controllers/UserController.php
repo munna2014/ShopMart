@@ -15,7 +15,7 @@ class UserController extends Controller
         $ordersSummary = [];
         if (Schema::hasTable('orders')) {
             $ordersSummary = DB::table('orders')
-                ->selectRaw('user_id, COUNT(*) as orders_count, COALESCE(SUM(total_amount), 0) as total_spent')
+                ->selectRaw("user_id, COUNT(*) as orders_count, COALESCE(SUM(CASE WHEN status IN ('PAID','SHIPPED','DELIVERED') THEN total_amount ELSE 0 END), 0) as total_spent")
                 ->groupBy('user_id')
                 ->get()
                 ->keyBy('user_id');

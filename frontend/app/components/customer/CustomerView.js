@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState, useEffect, Fragment } from "react";
@@ -1238,7 +1238,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                                                     {itemName}
                                                   </div>
                                                   <div className="text-xs text-gray-500">
-                                                    Unit ${itemPrice.toFixed(2)} · Qty {item.quantity}
+                                                    Unit ${itemPrice.toFixed(2)} Â· Qty {item.quantity}
                                                   </div>
                                                 </div>
                                               </div>
@@ -1350,8 +1350,8 @@ export default function CustomerView({ customer: initialCustomer }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
                   {Array.from({ length: 8 }).map((_, index) => (
                     <div key={index} className="bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden animate-pulse">
-                      <div className="w-full h-48 bg-gray-200"></div>
-                      <div className="p-6">
+                      <div className="w-full h-40 bg-gray-200"></div>
+                      <div className="p-4">
                         <div className="h-4 bg-gray-200 rounded mb-2"></div>
                         <div className="h-6 bg-gray-200 rounded mb-2"></div>
                         <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
@@ -1410,6 +1410,11 @@ export default function CustomerView({ customer: initialCustomer }) {
                     const showDiscount =
                       pricing.discountActive &&
                       pricing.basePrice > pricing.discountedPrice;
+                    const ratingValue = Math.max(
+                      0,
+                      Math.min(5, Math.round(Number(product.rating || 0)))
+                    );
+                    const reviewCount = Number(product.reviews || 0);
                     return (
                       <div
                         key={product.id}
@@ -1422,7 +1427,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                           <img
                             src={product.image || product.image_url || '/images/default-product.svg'}
                             alt={product.name}
-                            className="w-full h-48 object-cover"
+                            className="w-full h-40 object-cover"
                             onError={(e) => {
                               e.target.src = '/images/default-product.svg';
                             }}
@@ -1433,7 +1438,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                             </div>
                           )}
                         </Link>
-                        <div className="p-6">
+                        <div className="p-4">
                           <div className="text-sm text-green-600 font-medium mb-2">
                             {product.category}
                           </div>
@@ -1450,11 +1455,11 @@ export default function CustomerView({ customer: initialCustomer }) {
                           )}
                           <div className="flex items-center gap-2 mb-4">
                             <div className="flex text-yellow-400">
-                              {"★".repeat(product.rating || 4)}
-                              {"☆".repeat(5 - (product.rating || 4))}
+                              {"\u2605".repeat(ratingValue)}
+                              {"\u2606".repeat(5 - ratingValue)}
                             </div>
                             <span className="text-sm text-gray-400 ml-1">
-                              ({product.reviews || '0'})
+                              ({reviewCount})
                             </span>
                           </div>
                           <div className="flex items-center justify-between mb-3">
@@ -2018,5 +2023,9 @@ export default function CustomerView({ customer: initialCustomer }) {
     </div>
   );
 }
+
+
+
+
 
 

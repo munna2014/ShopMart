@@ -1462,17 +1462,22 @@ export default function CustomerView({ customer: initialCustomer }) {
                               ({reviewCount})
                             </span>
                           </div>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <div className="text-2xl font-bold text-gray-900">
-                                ${pricing.discountedPrice.toFixed(2)}
-                              </div>
-                              {showDiscount ? (
-                                <span className="text-xs text-gray-500 line-through">
-                                  ${pricing.basePrice.toFixed(2)}
-                                </span>
-                              ) : null}
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="text-2xl font-bold text-gray-900">
+                              ${pricing.discountedPrice.toFixed(2)}
                             </div>
+                            {showDiscount ? (
+                              <span className="text-xs text-gray-500 line-through">
+                                ${pricing.basePrice.toFixed(2)}
+                              </span>
+                            ) : null}
+                            {showDiscount ? (
+                              <span className="text-xs font-semibold text-rose-600">
+                                -{pricing.discountPercent}%
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center justify-between mb-3">
                             <div className="text-sm text-gray-600">
                               {availableStock > 0
                                 ? `${availableStock} in stock`

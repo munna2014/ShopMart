@@ -213,7 +213,7 @@ export default function CartPage() {
             <div className="text-center py-8">
               <p className="text-gray-600 mb-4">Your cart is empty.</p>
               <Link
-                href="/components/customer"
+                href="/"
                 className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
               >
                 Continue Shopping

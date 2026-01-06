@@ -71,7 +71,8 @@ class ProductController extends Controller
                 'discount_percent' => 'nullable|numeric|min:0|max:100',
                 'discount_starts_at' => 'nullable|date',
                 'discount_ends_at' => 'nullable|date|after_or_equal:discount_starts_at',
-                'image' => 'nullable|image|mimes:png,jpg,jpeg|max:10240' // 10MB max
+                'image' => 'nullable|image|mimes:png,jpg,jpeg|max:10240', // 10MB max
+                'image_url' => 'nullable|string|max:500'
             ]);
 
             $image = $request->file('image');
@@ -135,7 +136,7 @@ class ProductController extends Controller
                 'price' => 'sometimes|required|numeric|min:0',
                 'currency' => 'nullable|string|max:3',
                 'stock_quantity' => 'sometimes|required|integer|min:0',
-                'category_id' => 'sometimes|required|exists:categories,id',
+                'category_id' => 'sometimes|nullable|exists:categories,id',
                 'is_active' => 'boolean',
                 'color' => 'nullable|string|max:100',
                 'material' => 'nullable|string|max:100',
@@ -150,7 +151,8 @@ class ProductController extends Controller
                 'discount_percent' => 'nullable|numeric|min:0|max:100',
                 'discount_starts_at' => 'nullable|date',
                 'discount_ends_at' => 'nullable|date|after_or_equal:discount_starts_at',
-                'image' => 'nullable|image|mimes:png,jpg,jpeg|max:10240' // 10MB max
+                'image' => 'nullable|image|mimes:png,jpg,jpeg|max:10240', // 10MB max
+                'image_url' => 'nullable|string|max:500'
             ]);
 
             $image = $request->file('image');
@@ -271,6 +273,9 @@ class ProductController extends Controller
                     'image_url',
                     'stock_quantity',
                     'category_id',
+                    'discount_percent',
+                    'discount_starts_at',
+                    'discount_ends_at',
                     'created_at'
                 )
                 ->withAvg('reviews', 'rating')

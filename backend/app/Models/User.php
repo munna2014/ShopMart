@@ -131,6 +131,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Reviews written by this user
+     */
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /**
      * Get default address
      */
     public function defaultAddress()

@@ -51,12 +51,23 @@ class ProductController extends Controller
         try {
             $validatedData = $request->validate([
                 'name' => 'required|string|max:255',
+                'sku' => 'nullable|string|max:100',
                 'description' => 'nullable|string',
                 'price' => 'required|numeric|min:0',
                 'currency' => 'nullable|string|max:3',
                 'stock_quantity' => 'required|integer|min:0',
                 'category_id' => 'required|exists:categories,id',
                 'is_active' => 'boolean',
+                'color' => 'nullable|string|max:100',
+                'material' => 'nullable|string|max:100',
+                'brand' => 'nullable|string|max:100',
+                'size' => 'nullable|string|max:100',
+                'weight' => 'nullable|string|max:100',
+                'dimensions' => 'nullable|string|max:150',
+                'highlight_1' => 'nullable|string|max:255',
+                'highlight_2' => 'nullable|string|max:255',
+                'highlight_3' => 'nullable|string|max:255',
+                'highlight_4' => 'nullable|string|max:255',
                 'image' => 'nullable|image|mimes:png,jpg,jpeg|max:10240' // 10MB max
             ]);
 
@@ -113,12 +124,23 @@ class ProductController extends Controller
         try {
             $validatedData = $request->validate([
                 'name' => 'sometimes|required|string|max:255',
+                'sku' => 'nullable|string|max:100',
                 'description' => 'nullable|string',
                 'price' => 'sometimes|required|numeric|min:0',
                 'currency' => 'nullable|string|max:3',
                 'stock_quantity' => 'sometimes|required|integer|min:0',
                 'category_id' => 'sometimes|required|exists:categories,id',
                 'is_active' => 'boolean',
+                'color' => 'nullable|string|max:100',
+                'material' => 'nullable|string|max:100',
+                'brand' => 'nullable|string|max:100',
+                'size' => 'nullable|string|max:100',
+                'weight' => 'nullable|string|max:100',
+                'dimensions' => 'nullable|string|max:150',
+                'highlight_1' => 'nullable|string|max:255',
+                'highlight_2' => 'nullable|string|max:255',
+                'highlight_3' => 'nullable|string|max:255',
+                'highlight_4' => 'nullable|string|max:255',
                 'image' => 'nullable|image|mimes:png,jpg,jpeg|max:10240' // 10MB max
             ]);
 

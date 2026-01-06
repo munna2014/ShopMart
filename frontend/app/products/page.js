@@ -336,7 +336,7 @@ export default function ProductsPage() {
                 )}
 
                 <Link
-                  href={`/productDetails/${product.id}`}
+                  href={`/customer_product_details/${product.id}`}
                   className="relative aspect-square overflow-hidden rounded-t-lg block"
                 >
                   <img
@@ -357,7 +357,7 @@ export default function ProductsPage() {
                   )}
                   
                   <Link
-                    href={`/productDetails/${product.id}`}
+                    href={`/customer_product_details/${product.id}`}
                     className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 hover:text-green-700 transition-colors block"
                   >
                     {product.name}

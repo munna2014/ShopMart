@@ -145,6 +145,7 @@ export default function AdminProductDetails() {
       discount_percent: product.discount_percent ?? "",
       discount_starts_at: formatDateInput(product.discount_starts_at),
       discount_ends_at: formatDateInput(product.discount_ends_at),
+      image_url: product.image_url || "",
       image: null,
     });
   }, [product]);
@@ -239,7 +240,7 @@ export default function AdminProductDetails() {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
-        await api.put(`/admin/products/${id}`, {
+        const payload = {
           name: editForm.name.trim(),
           sku: editForm.sku.trim(),
           description: editForm.description.trim(),
@@ -263,7 +264,13 @@ export default function AdminProductDetails() {
               : Number(editForm.discount_percent),
           discount_starts_at: editForm.discount_starts_at || null,
           discount_ends_at: editForm.discount_ends_at || null,
-        });
+        };
+
+        if (editForm.image_url.trim()) {
+          payload.image_url = editForm.image_url.trim();
+        }
+
+        await api.put(`/admin/products/${id}`, payload);
       }
 
       const refreshed = await api.get(`/admin/products/${id}`);
@@ -588,6 +595,23 @@ export default function AdminProductDetails() {
                       onChange={handleEditImage}
                       className="w-full text-sm"
                     />
+                    <div className="mt-3">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Or Image URL
+                      </label>
+                      <input
+                        type="url"
+                        value={editForm.image_url}
+                        onChange={(e) =>
+                          handleEditChange("image_url", e.target.value)
+                        }
+                        placeholder="https://example.com/image.jpg"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        File upload overrides the URL if both are provided.
+                      </p>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">

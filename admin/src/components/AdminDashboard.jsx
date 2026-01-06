@@ -33,10 +33,34 @@ export default function AdminDashboard() {
     discount_percent: '',
     discount_starts_at: '',
     discount_ends_at: '',
+    image_url: '',
     image: null
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // State for real data
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    totalCustomers: 0,
+    totalOrders: 0,
+    revenue: "$0.00",
+  });
+
+  const [products, setProducts] = useState([]);
+  const [productsPagination, setProductsPagination] = useState({
+    currentPage: 1,
+    lastPage: 1,
+    perPage: 15,
+    total: 0,
+    from: 0,
+    to: 0,
+  });
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [customers, setCustomers] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -59,6 +83,26 @@ export default function AdminDashboard() {
       params.set("tab", tabId);
     }
     navigate({ pathname: "/", search: params.toString() }, { replace: true });
+  };
+
+  const handleProductsPageChange = (nextPage) => {
+    const safePage = Math.max(
+      1,
+      Math.min(nextPage, productsPagination.lastPage || 1)
+    );
+    setProductsPagination((prev) => ({
+      ...prev,
+      currentPage: safePage,
+    }));
+  };
+
+  const handleProductsPerPageChange = (event) => {
+    const perPage = Number(event.target.value) || 15;
+    setProductsPagination((prev) => ({
+      ...prev,
+      perPage,
+      currentPage: 1,
+    }));
   };
 
   // Fetch dashboard data
@@ -97,13 +141,34 @@ export default function AdminDashboard() {
   };
 
   // Fetch products data
-  const fetchProducts = async () => {
+  const fetchProducts = async ({ page, perPage } = {}) => {
+    const pageToLoad = page || productsPagination.currentPage || 1;
+    const perPageToLoad = perPage || productsPagination.perPage || 15;
+
     try {
-      const response = await api.get('/admin/products');
-      setProducts(response.data.data.data || []); // Handle pagination structure
+      setProductsLoading(true);
+      const response = await api.get('/admin/products', {
+        params: {
+          page: pageToLoad,
+          per_page: perPageToLoad,
+        },
+      });
+      const payload = response.data.data || {};
+      setProducts(payload.data || []);
+      setProductsPagination((prev) => ({
+        ...prev,
+        currentPage: payload.current_page || pageToLoad,
+        lastPage: payload.last_page || 1,
+        perPage: payload.per_page || perPageToLoad,
+        total: payload.total || 0,
+        from: payload.from || 0,
+        to: payload.to || 0,
+      }));
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -170,11 +235,9 @@ export default function AdminDashboard() {
       }
       if (tab === "products") {
         const needsCategories = categories.length === 0;
-        const needsProducts = products.length === 0;
-        await Promise.all([
-          needsCategories ? fetchCategories() : Promise.resolve(),
-          needsProducts ? fetchProducts() : Promise.resolve(),
-        ]);
+        if (needsCategories) {
+          await fetchCategories();
+        }
         return;
       }
       if (tab === "orders") {
@@ -251,6 +314,28 @@ export default function AdminDashboard() {
       loadActiveTab(activeTab);
     }
   }, [activeTab, loading, isAuthenticated, user, isAdmin]);
+
+  useEffect(() => {
+    if (activeTab !== "products") {
+      return;
+    }
+    if (loading || !isAuthenticated || !user || !isAdmin()) {
+      return;
+    }
+
+    fetchProducts({
+      page: productsPagination.currentPage,
+      perPage: productsPagination.perPage,
+    });
+  }, [
+    activeTab,
+    productsPagination.currentPage,
+    productsPagination.perPage,
+    loading,
+    isAuthenticated,
+    user,
+    isAdmin,
+  ]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -335,6 +420,14 @@ export default function AdminDashboard() {
       }
     }
 
+    if (productForm.image_url.trim()) {
+      try {
+        new URL(productForm.image_url.trim());
+      } catch (error) {
+        errors.image_url = 'Please enter a valid image URL';
+      }
+    }
+
     if (productForm.discount_starts_at && productForm.discount_ends_at) {
       if (productForm.discount_ends_at < productForm.discount_starts_at) {
         errors.discount_ends_at = 'End date must be on or after start date';
@@ -374,6 +467,7 @@ export default function AdminDashboard() {
         discount_percent: productForm.discount_percent,
         discount_starts_at: productForm.discount_starts_at,
         discount_ends_at: productForm.discount_ends_at,
+        image_url: productForm.image_url,
         image: productForm.image ? productForm.image.name : 'No image'
       });
 
@@ -402,6 +496,9 @@ export default function AdminDashboard() {
       }
       if (productForm.discount_ends_at) {
         formData.append('discount_ends_at', productForm.discount_ends_at);
+      }
+      if (productForm.image_url.trim()) {
+        formData.append('image_url', productForm.image_url.trim());
       }
       
       if (productForm.image) {
@@ -459,32 +556,25 @@ export default function AdminDashboard() {
       discount_percent: '',
       discount_starts_at: '',
       discount_ends_at: '',
+      image_url: '',
       image: null
     });
     setFormErrors({});
     setImagePreview(null);
   };
 
-  // State for real data
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    totalCustomers: 0,
-    totalOrders: 0,
-    revenue: "$0.00",
-  });
-
-  const [products, setProducts] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [dataLoading, setDataLoading] = useState(true);
-
   const handleDeleteProduct = async (id) => {
     if (confirm("Are you sure you want to delete this product?")) {
       try {
         await api.delete(`/admin/products/${id}`);
-        // Remove from local state
-        setProducts(products.filter((p) => p.id !== id));
+        const nextPage =
+          products.length === 1 && productsPagination.currentPage > 1
+            ? productsPagination.currentPage - 1
+            : productsPagination.currentPage;
+        await fetchProducts({
+          page: nextPage,
+          perPage: productsPagination.perPage,
+        });
         // Refresh dashboard stats
         fetchDashboardData();
         alert("Product deleted successfully");
@@ -1047,6 +1137,89 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-4">
+                <div className="text-sm text-gray-600">
+                  {productsLoading
+                    ? "Loading products..."
+                    : `Showing ${productsPagination.from || 0} to ${
+                        productsPagination.to || 0
+                      } of ${productsPagination.total || products.length} products`}
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <label className="text-sm text-gray-600 flex items-center gap-2">
+                    Per page
+                    <select
+                      value={productsPagination.perPage}
+                      onChange={handleProductsPerPageChange}
+                      className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                    >
+                      {[10, 15, 25, 50].map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleProductsPageChange(
+                          (productsPagination.currentPage || 1) - 1
+                        )
+                      }
+                      disabled={
+                        productsLoading || (productsPagination.currentPage || 1) <= 1
+                      }
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    {(() => {
+                      const currentPage = productsPagination.currentPage || 1;
+                      const lastPage = productsPagination.lastPage || 1;
+                      const windowSize = 2;
+                      const start = Math.max(1, currentPage - windowSize);
+                      const end = Math.min(lastPage, currentPage + windowSize);
+                      const pages = [];
+                      for (let page = start; page <= end; page += 1) {
+                        pages.push(page);
+                      }
+                      return pages.map((page) => (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => handleProductsPageChange(page)}
+                          disabled={productsLoading}
+                          className={`px-3 py-1 text-sm border rounded-md ${
+                            page === currentPage
+                              ? "bg-green-600 text-white border-green-600"
+                              : "border-gray-300 text-gray-700"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ));
+                    })()}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleProductsPageChange(
+                          (productsPagination.currentPage || 1) + 1
+                        )
+                      }
+                      disabled={
+                        productsLoading ||
+                        (productsPagination.currentPage || 1) >=
+                          (productsPagination.lastPage || 1)
+                      }
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1407,15 +1580,22 @@ export default function AdminDashboard() {
                   Product Image
                 </label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-600 transition-colors">
-                  {imagePreview ? (
+                  {imagePreview || productForm.image_url.trim() ? (
                     <div className="relative">
                       <img
-                        src={imagePreview}
+                        src={imagePreview || productForm.image_url.trim()}
                         alt="Preview"
                         className="max-h-48 mx-auto rounded-lg"
                       />
                       <button
-                        onClick={() => setImagePreview(null)}
+                        onClick={() => {
+                          setImagePreview(null);
+                          setProductForm((prev) => ({
+                            ...prev,
+                            image: null,
+                            image_url: '',
+                          }));
+                        }}
                         className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
                       >
                         <svg
@@ -1469,6 +1649,24 @@ export default function AdminDashboard() {
                   >
                     Choose File
                   </label>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Or Image URL
+                  </label>
+                  <input
+                    type="url"
+                    value={productForm.image_url}
+                    onChange={(e) => handleFormChange('image_url', e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                    className="w-full text-black px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none border-gray-300"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Image file upload overrides the URL if both are provided.
+                  </p>
+                  {formErrors.image_url && (
+                    <p className="text-red-500 text-sm mt-1">{formErrors.image_url}</p>
+                  )}
                 </div>
                 {formErrors.image && (
                   <p className="text-red-500 text-sm mt-2">{formErrors.image}</p>

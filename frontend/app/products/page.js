@@ -18,6 +18,8 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [addingToCart, setAddingToCart] = useState({});
   const [cartItems, setCartItems] = useState([]);
 
@@ -112,6 +114,17 @@ export default function ProductsPage() {
     setFilteredProducts(filtered);
   }, [products, searchTerm, selectedCategory, sortBy]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory, sortBy]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredProducts, pageSize, currentPage]);
+
   const handleAddToCart = async (product) => {
     if (product.inStock === false || (product.stock || 0) <= 0) {
       return;
@@ -190,6 +203,19 @@ export default function ProductsPage() {
   const cartCount = cartItems.reduce(
     (sum, item) => sum + (item.quantity || 0),
     0
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const pageStart = filteredProducts.length === 0
+    ? 0
+    : (currentPage - 1) * pageSize + 1;
+  const pageEnd = Math.min(filteredProducts.length, currentPage * pageSize);
+  const paginatedProducts = filteredProducts.slice(pageStart - 1, pageEnd);
+  const pageWindow = 2;
+  const startPage = Math.max(1, currentPage - pageWindow);
+  const endPage = Math.min(totalPages, currentPage + pageWindow);
+  const pageNumbers = Array.from(
+    { length: endPage - startPage + 1 },
+    (_, index) => startPage + index
   );
 
   return (
@@ -338,7 +364,7 @@ export default function ProductsPage() {
           {/* Results Count */}
           <div className="mt-4 pt-4 border-t">
             <p className="text-xs sm:text-sm text-gray-600">
-              Showing {filteredProducts.length} of {products.length} products
+              Showing {pageStart} to {pageEnd} of {filteredProducts.length} products
               {searchTerm && ` for "${searchTerm}"`}
               {selectedCategory && ` in "${selectedCategory}"`}
             </p>
@@ -397,7 +423,7 @@ export default function ProductsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-            {filteredProducts.map((product) => {
+            {paginatedProducts.map((product) => {
               const cartItem = cartItems.find((item) => item.id === product.id);
               const cartQuantity = cartItem?.quantity || 0;
               const availableStock = Math.max(
@@ -474,17 +500,22 @@ export default function ProductsPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl font-bold text-gray-900">
-                        ${pricing.discountedPrice.toFixed(2)}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl font-bold text-gray-900">
+                      ${pricing.discountedPrice.toFixed(2)}
+                    </span>
+                    {showDiscount ? (
+                      <span className="text-xs text-gray-500 line-through">
+                        ${pricing.basePrice.toFixed(2)}
                       </span>
-                      {showDiscount ? (
-                        <span className="text-xs text-gray-500 line-through">
-                          ${pricing.basePrice.toFixed(2)}
-                        </span>
-                      ) : null}
-                    </div>
+                    ) : null}
+                    {showDiscount ? (
+                      <span className="text-xs font-semibold text-rose-600">
+                        -{pricing.discountPercent}%
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-gray-600">
                       {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
                     </span>
@@ -538,6 +569,64 @@ export default function ProductsPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {!loading && filteredProducts.length > pageSize && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 flex items-center gap-2">
+                Per page
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                >
+                  {[8, 12, 16, 24].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                {pageNumbers.map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 text-sm border rounded-md ${
+                      page === currentPage
+                        ? "bg-green-600 text-white border-green-600"
+                        : "border-gray-300 text-gray-700"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

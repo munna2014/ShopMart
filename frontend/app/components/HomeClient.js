@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -683,8 +683,8 @@ export default function HomeClient() {
                   key={index}
                   className="bg-white rounded-2xl overflow-hidden shadow-lg animate-pulse"
                 >
-                  <div className="aspect-square bg-gray-200"></div>
-                  <div className="p-6">
+                  <div className="aspect-[4/3] bg-gray-200"></div>
+                  <div className="p-4">
                     <div className="h-4 bg-gray-200 rounded mb-2"></div>
                     <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
                     <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -726,6 +726,11 @@ export default function HomeClient() {
                 const showDiscount =
                   pricing.discountActive &&
                   pricing.basePrice > pricing.discountedPrice;
+                const ratingValue = Math.max(
+                  0,
+                  Math.min(5, Math.round(Number(product.rating || 0)))
+                );
+                const reviewCount = Number(product.reviews || 0);
 
                 return (
               <div
@@ -744,7 +749,7 @@ export default function HomeClient() {
 
                 <Link
                   href={`/customer_product_details/${product.id}`}
-                  className="relative aspect-square overflow-hidden block"
+                  className="relative aspect-[4/3] overflow-hidden block"
                 >
                   <img
                     src={product.image || product.image_url || '/images/default-product.svg'}
@@ -757,7 +762,7 @@ export default function HomeClient() {
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                 </Link>
 
-                <div className="p-6">
+                <div className="p-4">
                   <div className="mb-2">
                     {product.category && (
                       <span className="text-xs text-green-600 font-medium uppercase tracking-wide">
@@ -774,11 +779,11 @@ export default function HomeClient() {
 
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex text-yellow-400">
-                      {"★".repeat(product.rating || 4)}
-                      {"☆".repeat(5 - (product.rating || 4))}
+                      {"\u2605".repeat(ratingValue)}
+                      {"\u2606".repeat(5 - ratingValue)}
                     </div>
                     <span className="text-sm text-gray-500">
-                      ({product.reviews || '0'})
+                      ({reviewCount})
                     </span>
                   </div>
 
@@ -1176,3 +1181,9 @@ export default function HomeClient() {
     </div>
   );
 }
+
+
+
+
+
+

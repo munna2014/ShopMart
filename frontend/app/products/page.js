@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
-import { addGuestItem } from "@/lib/guestCart";
+import { addGuestItem, getGuestCart, updateGuestItem } from "@/lib/guestCart";
 import { getPricing } from "@/lib/pricing";
 
 export default function ProductsPage() {
@@ -19,6 +19,7 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState('name');
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [addingToCart, setAddingToCart] = useState({});
+  const [cartItems, setCartItems] = useState([]);
 
   useEffect(() => {
     const query = searchParams.get("search");
@@ -26,6 +27,29 @@ export default function ProductsPage() {
       setSearchTerm(query);
     }
   }, [searchParams]);
+
+  const fetchCart = async () => {
+    try {
+      const response = await api.get("/cart");
+      const items = response.data.cart?.items || [];
+      const mapped = items.map((item) => ({
+        id: item.product_id,
+        quantity: item.quantity,
+      }));
+      setCartItems(mapped);
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+      setCartItems([]);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCart();
+    } else {
+      setCartItems(getGuestCart());
+    }
+  }, [isAuthenticated]);
 
   // Fetch products and categories
   useEffect(() => {
@@ -97,7 +121,7 @@ export default function ProductsPage() {
     try {
       if (!isAuthenticated) {
         const pricing = getPricing(product);
-        addGuestItem(
+        const updated = addGuestItem(
           {
             id: product.id,
             name: product.name,
@@ -106,16 +130,67 @@ export default function ProductsPage() {
           },
           1
         );
+        setCartItems(updated);
       } else {
+        setCartItems((prev) => {
+          const existing = prev.find((item) => item.id === product.id);
+          if (existing) {
+            return prev.map((item) =>
+              item.id === product.id
+                ? { ...item, quantity: item.quantity + 1 }
+                : item
+            );
+          }
+          return [...prev, { id: product.id, quantity: 1 }];
+        });
         await api.post("/cart/items", { product_id: product.id, quantity: 1 });
       }
     } catch (error) {
       console.error("Error adding to cart:", error);
       alert(error.response?.data?.message || "Failed to add item to cart.");
+      if (isAuthenticated) {
+        fetchCart();
+      }
     } finally {
       setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
     }
   };
+
+  const updateCartQuantity = async (productId, nextQuantity) => {
+    setCartItems((prev) => {
+      if (nextQuantity <= 0) {
+        return prev.filter((item) => item.id !== productId);
+      }
+      return prev.map((item) =>
+        item.id === productId ? { ...item, quantity: nextQuantity } : item
+      );
+    });
+
+    if (!isAuthenticated) {
+      const updated = updateGuestItem(productId, nextQuantity);
+      setCartItems(updated);
+      return;
+    }
+
+    try {
+      if (nextQuantity <= 0) {
+        await api.delete(`/cart/items/${productId}`);
+      } else {
+        await api.patch(`/cart/items/${productId}`, {
+          quantity: nextQuantity,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating cart:", error);
+      alert(error.response?.data?.message || "Failed to update cart.");
+      fetchCart();
+    }
+  };
+
+  const cartCount = cartItems.reduce(
+    (sum, item) => sum + (item.quantity || 0),
+    0
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -275,7 +350,7 @@ export default function ProductsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {Array.from({ length: 8 }).map((_, index) => (
               <div key={index} className="bg-white rounded-lg shadow-sm border animate-pulse">
-                <div className="aspect-square bg-gray-200"></div>
+                <div className="aspect-[4/3] bg-gray-200"></div>
                 <div className="p-4">
                   <div className="h-4 bg-gray-200 rounded mb-2"></div>
                   <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
@@ -323,10 +398,22 @@ export default function ProductsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
             {filteredProducts.map((product) => {
+              const cartItem = cartItems.find((item) => item.id === product.id);
+              const cartQuantity = cartItem?.quantity || 0;
+              const availableStock = Math.max(
+                0,
+                (product.stock || 0) - cartQuantity
+              );
+              const atStockLimit = availableStock === 0 && cartQuantity > 0;
               const pricing = getPricing(product);
               const showDiscount =
                 pricing.discountActive &&
                 pricing.basePrice > pricing.discountedPrice;
+              const ratingValue = Math.max(
+                0,
+                Math.min(5, Math.round(Number(product.rating || 0)))
+              );
+              const reviewCount = Number(product.reviews || 0);
 
               return (
                 <div
@@ -345,7 +432,7 @@ export default function ProductsPage() {
 
                 <Link
                   href={`/customer_product_details/${product.id}`}
-                  className="relative aspect-square overflow-hidden rounded-t-lg block"
+                  className="relative aspect-[4/3] overflow-hidden rounded-t-lg block"
                 >
                   <img
                     src={product.image || product.image_url || '/images/default-product.svg'}
@@ -379,11 +466,11 @@ export default function ProductsPage() {
 
                   <div className="flex items-center gap-1 mb-3">
                     <div className="flex text-yellow-400">
-                      {"★".repeat(product.rating || 4)}
-                      {"☆".repeat(5 - (product.rating || 4))}
+                      {"\u2605".repeat(ratingValue)}
+                      {"\u2606".repeat(5 - ratingValue)}
                     </div>
                     <span className="text-sm text-gray-500 ml-1">
-                      ({product.reviews || '0'})
+                      ({reviewCount})
                     </span>
                   </div>
 
@@ -403,21 +490,50 @@ export default function ProductsPage() {
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => handleAddToCart(product)}
-                    className={`w-full py-2 rounded-lg font-medium transition-all ${
-                      product.inStock !== false && !addingToCart[product.id]
-                        ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-md'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                    disabled={product.inStock === false || addingToCart[product.id]}
-                  >
-                    {product.inStock !== false
-                      ? addingToCart[product.id]
-                        ? 'Adding...'
-                        : 'Add to Cart'
-                      : 'Out of Stock'}
-                  </button>
+                  {cartItem ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        onClick={() =>
+                          updateCartQuantity(product.id, cartQuantity - 1)
+                        }
+                        className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200"
+                      >
+                        -
+                      </button>
+                      <span className="font-semibold text-gray-900">
+                        {cartQuantity}
+                      </span>
+                      <button
+                        onClick={() =>
+                          updateCartQuantity(product.id, cartQuantity + 1)
+                        }
+                        disabled={atStockLimit}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          atStockLimit
+                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                            : "bg-green-600 text-white hover:bg-green-500"
+                        }`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleAddToCart(product)}
+                      className={`w-full py-2 rounded-lg font-medium transition-all ${
+                        product.inStock !== false && !addingToCart[product.id]
+                          ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-md'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                      disabled={product.inStock === false || addingToCart[product.id]}
+                    >
+                      {product.inStock !== false
+                        ? addingToCart[product.id]
+                          ? 'Adding...'
+                          : 'Add to Cart'
+                        : 'Out of Stock'}
+                    </button>
+                  )}
                 </div>
                 </div>
               );
@@ -468,6 +584,32 @@ export default function ProductsPage() {
           </div>
         </div>
       </footer>
+
+      {cartCount > 0 && (
+        <Link
+          href="/components/customer/cart"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-full shadow-xl hover:shadow-2xl transition-all"
+        >
+          <svg
+            className="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Cart ({cartCount})
+        </Link>
+      )}
     </div>
   );
 }
+
+
+
+

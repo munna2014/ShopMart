@@ -98,6 +98,8 @@ class ProductService
     public function getFeaturedProducts(int $limit = 8): Collection
     {
         return Product::with('category')
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->active()
             ->where('stock_quantity', '>', 0)
             ->orderBy('created_at', 'desc')
@@ -111,6 +113,8 @@ class ProductService
     public function getCustomerProducts(int $limit = null): Collection
     {
         $query = Product::with('category')
+            ->withAvg('reviews', 'rating')
+            ->withCount('reviews')
             ->active()
             ->orderBy('created_at', 'desc');
 

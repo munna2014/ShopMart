@@ -212,6 +212,8 @@ class ProductController extends Controller
                 $discountPercent = $product->getActiveDiscountPercent();
                 $discountedPrice = $product->getDiscountedPrice();
                 $hasDiscount = $discountPercent > 0 && $discountedPrice < $basePrice;
+                $averageRating = $product->reviews_avg_rating ?? 0;
+                $reviewCount = $product->reviews_count ?? 0;
 
                 return [
                     'id' => $product->id,
@@ -228,8 +230,8 @@ class ProductController extends Controller
                     'image' => $product->image_url ?: '/images/default-product.svg',
                     'category' => $product->category ? $product->category->name : 'Uncategorized',
                     'stock' => $product->stock_quantity,
-                    'rating' => 4, // Default rating - you can add a rating system later
-                    'reviews' => rand(10, 100), // Mock reviews - you can add a review system later
+                    'rating' => $averageRating ? round($averageRating, 1) : 0,
+                    'reviews' => $reviewCount,
                     'badge' => $product->stock_quantity > 0 ? null : 'Out of Stock',
                     'badgeColor' => $product->stock_quantity > 0 ? null : 'bg-red-500',
                     'oldPrice' => $hasDiscount ? '$' . number_format($basePrice, 2) : null,
@@ -271,6 +273,8 @@ class ProductController extends Controller
                     'category_id',
                     'created_at'
                 )
+                ->withAvg('reviews', 'rating')
+                ->withCount('reviews')
                 ->with(['category' => function ($categoryQuery) {
                     $categoryQuery->select('id', 'name');
                 }])
@@ -296,6 +300,8 @@ class ProductController extends Controller
                 $discountPercent = $product->getActiveDiscountPercent();
                 $discountedPrice = $product->getDiscountedPrice();
                 $hasDiscount = $discountPercent > 0 && $discountedPrice < $basePrice;
+                $averageRating = $product->reviews_avg_rating ?? 0;
+                $reviewCount = $product->reviews_count ?? 0;
 
                 return [
                     'id' => $product->id,
@@ -312,8 +318,8 @@ class ProductController extends Controller
                     'image' => $product->image_url ?: '/images/default-product.svg',
                     'category' => $product->category ? $product->category->name : 'Uncategorized',
                     'stock' => $product->stock_quantity,
-                    'rating' => 4,
-                    'reviews' => rand(10, 100),
+                    'rating' => $averageRating ? round($averageRating, 1) : 0,
+                    'reviews' => $reviewCount,
                     'badge' => $product->stock_quantity > 0 ? null : 'Out of Stock',
                     'badgeColor' => $product->stock_quantity > 0 ? null : 'bg-red-500',
                     'oldPrice' => $hasDiscount ? '$' . number_format($basePrice, 2) : null,

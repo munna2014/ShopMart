@@ -23,6 +23,9 @@ export default function CustomerView({ customer: initialCustomer }) {
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+  const [showProductSuggestions, setShowProductSuggestions] = useState(false);
+  const [productSuggestions, setProductSuggestions] = useState([]);
+  const [productSuggestionsLoading, setProductSuggestionsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [addresses, setAddresses] = useState([]);
   const [addressesLoading, setAddressesLoading] = useState(false);
@@ -66,6 +69,7 @@ export default function CustomerView({ customer: initialCustomer }) {
     (sum, item) => sum + (item.quantity || 0),
     0
   );
+  const trimmedProductSearch = productSearch.trim();
 
   const handleProfilePictureChange = async (e) => {
     const file = e.target.files[0];
@@ -294,6 +298,46 @@ export default function CustomerView({ customer: initialCustomer }) {
       fetchCategories();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "shop") {
+      return;
+    }
+    const trimmed = productSearch.trim();
+    if (trimmed.length < 1) {
+      setProductSuggestions([]);
+      setProductSuggestionsLoading(false);
+      return;
+    }
+
+    let active = true;
+    const timeout = setTimeout(async () => {
+      try {
+        setProductSuggestionsLoading(true);
+        const response = await api.get('/products/suggestions', {
+          params: {
+            q: trimmed,
+            limit: 6,
+          },
+        });
+        if (!active) return;
+        setProductSuggestions(response.data.suggestions || []);
+      } catch (error) {
+        if (active) {
+          setProductSuggestions([]);
+        }
+      } finally {
+        if (active) {
+          setProductSuggestionsLoading(false);
+        }
+      }
+    }, 200);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [activeTab, productSearch]);
 
   // Fetch orders when Orders tab is active
   useEffect(() => {
@@ -1313,13 +1357,59 @@ export default function CustomerView({ customer: initialCustomer }) {
                   <label className="block text-sm font-medium text-gray-600 mb-2">
                     Search products
                   </label>
-                  <input
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    placeholder="Search by name, category, or description..."
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      onFocus={() => setShowProductSuggestions(true)}
+                      onBlur={() => {
+                        setTimeout(() => setShowProductSuggestions(false), 150);
+                      }}
+                      placeholder="Search by name, category, or description..."
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                    />
+                    {showProductSuggestions &&
+                      trimmedProductSearch.length >= 1 && (
+                        <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden divide-y divide-gray-200">
+                          {productSuggestionsLoading ? (
+                            <div className="px-4 py-2.5 text-xs text-gray-500">
+                              Searching...
+                            </div>
+                          ) : productSuggestions.length > 0 ? (
+                            productSuggestions.map((product) => (
+                              <button
+                                key={product.id}
+                                type="button"
+                                onClick={() => {
+                                  setProductSearch(product.name);
+                                  setShowProductSuggestions(false);
+                                }}
+                                className="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                <svg
+                                  className="w-4 h-4 text-gray-400"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <circle cx="11" cy="11" r="8" />
+                                  <path d="m21 21-4.35-4.35" />
+                                </svg>
+                                <span className="font-semibold text-gray-900">
+                                  {product.name}
+                                </span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-2.5 text-xs text-gray-500">
+                              No products found.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                  </div>
                 </div>
                 <div className="w-full lg:w-72">
                   <label className="block text-sm font-medium text-gray-600 mb-2">

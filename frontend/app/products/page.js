@@ -20,6 +20,9 @@ export default function ProductsPage() {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [searchSuggestionsLoading, setSearchSuggestionsLoading] = useState(false);
   const [addingToCart, setAddingToCart] = useState({});
   const [cartItems, setCartItems] = useState([]);
 
@@ -117,6 +120,43 @@ export default function ProductsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedCategory, sortBy]);
+
+  useEffect(() => {
+    const trimmed = searchTerm.trim();
+    if (trimmed.length < 1) {
+      setSearchSuggestions([]);
+      setSearchSuggestionsLoading(false);
+      return;
+    }
+
+    let active = true;
+    const timeout = setTimeout(async () => {
+      try {
+        setSearchSuggestionsLoading(true);
+        const response = await api.get('/products/suggestions', {
+          params: {
+            q: trimmed,
+            limit: 6,
+          },
+        });
+        if (!active) return;
+        setSearchSuggestions(response.data.suggestions || []);
+      } catch (error) {
+        if (active) {
+          setSearchSuggestions([]);
+        }
+      } finally {
+        if (active) {
+          setSearchSuggestionsLoading(false);
+        }
+      }
+    }, 200);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [searchTerm]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
@@ -217,6 +257,7 @@ export default function ProductsPage() {
     { length: endPage - startPage + 1 },
     (_, index) => startPage + index
   );
+  const trimmedSearch = searchTerm.trim();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -308,6 +349,10 @@ export default function ProductsPage() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => {
+                    setTimeout(() => setShowSuggestions(false), 150);
+                  }}
                   placeholder="Search by name, description, or category..."
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none text-sm"
                 />
@@ -321,6 +366,45 @@ export default function ProductsPage() {
                   <circle cx="11" cy="11" r="8" />
                   <path d="m21 21-4.35-4.35" />
                 </svg>
+                {showSuggestions && trimmedSearch.length >= 1 && (
+                  <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden divide-y divide-gray-200">
+                    {searchSuggestionsLoading ? (
+                      <div className="px-4 py-2.5 text-xs text-gray-500">
+                        Searching...
+                      </div>
+                    ) : searchSuggestions.length > 0 ? (
+                      searchSuggestions.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => {
+                            setSearchTerm(product.name);
+                            setShowSuggestions(false);
+                          }}
+                          className="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4 text-gray-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.35-4.35" />
+                          </svg>
+                          <span className="font-semibold text-gray-900">
+                            {product.name}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-2.5 text-xs text-gray-500">
+                        No products found.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

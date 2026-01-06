@@ -347,6 +347,46 @@ class ProductController extends Controller
     }
 
     /**
+     * Get product name suggestions for search autocomplete.
+     */
+    public function suggestions(Request $request): JsonResponse
+    {
+        try {
+            $query = trim((string) $request->get('q', ''));
+            $limit = (int) $request->get('limit', 6);
+            if ($limit <= 0) {
+                $limit = 6;
+            }
+
+            if ($query === '') {
+                return response()->json([
+                    'status' => 'success',
+                    'suggestions' => [],
+                ]);
+            }
+
+            $safeQuery = addcslashes($query, '%_\\');
+            $suggestions = Product::select('id', 'name')
+                ->active()
+                ->where('name', 'like', $safeQuery . '%')
+                ->orderBy('name')
+                ->limit($limit)
+                ->get();
+
+            return response()->json([
+                'status' => 'success',
+                'suggestions' => $suggestions,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve suggestions',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Get products for admin dashboard with management data
      */
     public function adminIndex(Request $request): JsonResponse

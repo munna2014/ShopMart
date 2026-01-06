@@ -32,6 +32,9 @@ export default function HomeClient() {
   const [statsReady, setStatsReady] = useState(false);
   const [addingToCart, setAddingToCart] = useState({});
   const [cartItems, setCartItems] = useState([]);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [searchSuggestionsLoading, setSearchSuggestionsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Image sets for rotation
@@ -139,6 +142,43 @@ export default function HomeClient() {
     router.push(target);
   };
 
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 1) {
+      setSearchSuggestions([]);
+      setSearchSuggestionsLoading(false);
+      return;
+    }
+
+    let active = true;
+    const timeout = setTimeout(async () => {
+      try {
+        setSearchSuggestionsLoading(true);
+        const response = await api.get('/products/suggestions', {
+          params: {
+            q: trimmed,
+            limit: 6,
+          },
+        });
+        if (!active) return;
+        setSearchSuggestions(response.data.suggestions || []);
+      } catch (error) {
+        if (active) {
+          setSearchSuggestions([]);
+        }
+      } finally {
+        if (active) {
+          setSearchSuggestionsLoading(false);
+        }
+      }
+    }, 200);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [searchQuery]);
+
   const fetchCart = async () => {
     try {
       const response = await api.get("/cart");
@@ -231,6 +271,7 @@ export default function HomeClient() {
   const cartCount = isAuthenticated
     ? cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0)
     : getGuestCartCount();
+  const trimmedSearchQuery = searchQuery.trim();
 
   if (!mounted) return null;
 
@@ -307,9 +348,55 @@ export default function HomeClient() {
                   type="text"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
+                  onFocus={() => setShowSearchSuggestions(true)}
+                  onBlur={() => {
+                    setTimeout(() => setShowSearchSuggestions(false), 150);
+                  }}
                   placeholder="Search products..."
                   className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 placeholder-gray-400"
                 />
+                {showSearchSuggestions && trimmedSearchQuery.length >= 1 && (
+                  <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden divide-y divide-gray-200">
+                    {searchSuggestionsLoading ? (
+                      <div className="px-3 py-2 text-xs text-gray-500">
+                        Searching...
+                      </div>
+                    ) : searchSuggestions.length > 0 ? (
+                      searchSuggestions.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery(product.name);
+                            setShowSearchSuggestions(false);
+                            router.push(
+                              `/products?search=${encodeURIComponent(product.name)}`
+                            );
+                          }}
+                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4 text-gray-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.35-4.35" />
+                          </svg>
+                          <span className="font-semibold text-gray-900">
+                            {product.name}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-xs text-gray-500">
+                        No products found.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <button
                 type="submit"

@@ -97,7 +97,11 @@ class OrderController extends Controller
                         ]);
                     }
 
-                    $unitPrice = (float) $product->price;
+                    $originalUnitPrice = (float) $product->price;
+                    $discountPercent = $product->getActiveDiscountPercent();
+                    $unitPrice = $discountPercent > 0
+                        ? round($originalUnitPrice * (1 - ($discountPercent / 100)), 2)
+                        : $originalUnitPrice;
                     $lineTotal = $unitPrice * $cartItem->quantity;
 
                     $order->items()->create([
@@ -105,6 +109,8 @@ class OrderController extends Controller
                         'quantity' => $cartItem->quantity,
                         'unit_price' => $unitPrice,
                         'total_price' => $lineTotal,
+                        'original_unit_price' => $originalUnitPrice,
+                        'discount_percent' => $discountPercent,
                     ]);
 
                     $product->decreaseStock($cartItem->quantity);

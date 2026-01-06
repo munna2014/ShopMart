@@ -20,7 +20,15 @@ class CartController extends Controller
                 $query->select('id', 'cart_id', 'product_id', 'quantity', 'unit_price')
                     ->with([
                         'product' => function ($productQuery) {
-                            $productQuery->select('id', 'name', 'price', 'image_url');
+                            $productQuery->select(
+                                'id',
+                                'name',
+                                'price',
+                                'image_url',
+                                'discount_percent',
+                                'discount_starts_at',
+                                'discount_ends_at'
+                            );
                         },
                     ]);
             },

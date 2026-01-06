@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import { clearGuestCart, getGuestCart, updateGuestItem } from "@/lib/guestCart";
+import { getPricing } from "@/lib/pricing";
 
 export default function CartPage() {
   const router = useRouter();
@@ -31,7 +32,15 @@ export default function CartPage() {
         const mapped = items.map((item) => ({
           id: item.product_id,
           name: item.product?.name,
-          price: Number(item.unit_price || item.product?.price || 0),
+          ...(() => {
+            const pricing = getPricing(item.product || { price: item.unit_price });
+            return {
+              price: pricing.discountedPrice,
+              originalPrice: pricing.basePrice,
+              discountPercent: pricing.discountPercent,
+              discountActive: pricing.discountActive,
+            };
+          })(),
           image: item.product?.image_url || "/images/default-product.svg",
           quantity: item.quantity,
           stock:
@@ -49,10 +58,14 @@ export default function CartPage() {
             try {
               const response = await api.get(`/products/${item.id}`);
               const product = response.data.data;
+              const pricing = getPricing(product);
               return {
                 id: item.id,
                 name: product?.name || item.name,
-                price: Number(product?.price || item.price || 0),
+                price: pricing.discountedPrice,
+                originalPrice: pricing.basePrice,
+                discountPercent: pricing.discountPercent,
+                discountActive: pricing.discountActive,
                 image: product?.image_url || item.image || "/images/default-product.svg",
                 quantity: item.quantity,
                 stock: product?.stock_quantity ?? null,
@@ -234,6 +247,11 @@ export default function CartPage() {
                         </div>
                         <div className="text-sm text-gray-500">
                           {"$" + Number(item.price || 0).toFixed(2)} x {item.quantity}
+                          {item.discountActive && item.originalPrice > item.price ? (
+                            <span className="ml-2 text-xs text-gray-400 line-through">
+                              ${Number(item.originalPrice || 0).toFixed(2)}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </Link>

@@ -68,6 +68,9 @@ class ProductController extends Controller
                 'highlight_2' => 'nullable|string|max:255',
                 'highlight_3' => 'nullable|string|max:255',
                 'highlight_4' => 'nullable|string|max:255',
+                'discount_percent' => 'nullable|numeric|min:0|max:100',
+                'discount_starts_at' => 'nullable|date',
+                'discount_ends_at' => 'nullable|date|after_or_equal:discount_starts_at',
                 'image' => 'nullable|image|mimes:png,jpg,jpeg|max:10240' // 10MB max
             ]);
 
@@ -101,6 +104,9 @@ class ProductController extends Controller
     {
         try {
             $product = Product::with('category')->findOrFail($id);
+            $discountPercent = $product->getActiveDiscountPercent();
+            $product->setAttribute('discount_active', $discountPercent > 0);
+            $product->setAttribute('discounted_price', $product->getDiscountedPrice());
 
             return response()->json([
                 'status' => 'success',
@@ -141,6 +147,9 @@ class ProductController extends Controller
                 'highlight_2' => 'nullable|string|max:255',
                 'highlight_3' => 'nullable|string|max:255',
                 'highlight_4' => 'nullable|string|max:255',
+                'discount_percent' => 'nullable|numeric|min:0|max:100',
+                'discount_starts_at' => 'nullable|date',
+                'discount_ends_at' => 'nullable|date|after_or_equal:discount_starts_at',
                 'image' => 'nullable|image|mimes:png,jpg,jpeg|max:10240' // 10MB max
             ]);
 
@@ -199,11 +208,23 @@ class ProductController extends Controller
 
             // Transform products for frontend display
             $formattedProducts = $products->map(function ($product) {
+                $basePrice = (float) $product->price;
+                $discountPercent = $product->getActiveDiscountPercent();
+                $discountedPrice = $product->getDiscountedPrice();
+                $hasDiscount = $discountPercent > 0 && $discountedPrice < $basePrice;
+
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
                     'description' => $product->description,
-                    'price' => '$' . number_format($product->price, 2),
+                    'price' => '$' . number_format($hasDiscount ? $discountedPrice : $basePrice, 2),
+                    'price_value' => $basePrice,
+                    'discount_percent' => $discountPercent,
+                    'discount_active' => $hasDiscount,
+                    'discounted_price' => $discountedPrice,
+                    'discounted_price_label' => '$' . number_format($discountedPrice, 2),
+                    'discount_starts_at' => optional($product->discount_starts_at)->toISOString(),
+                    'discount_ends_at' => optional($product->discount_ends_at)->toISOString(),
                     'image' => $product->image_url ?: '/images/default-product.svg',
                     'category' => $product->category ? $product->category->name : 'Uncategorized',
                     'stock' => $product->stock_quantity,
@@ -211,7 +232,7 @@ class ProductController extends Controller
                     'reviews' => rand(10, 100), // Mock reviews - you can add a review system later
                     'badge' => $product->stock_quantity > 0 ? null : 'Out of Stock',
                     'badgeColor' => $product->stock_quantity > 0 ? null : 'bg-red-500',
-                    'oldPrice' => null, // You can add sale price functionality later
+                    'oldPrice' => $hasDiscount ? '$' . number_format($basePrice, 2) : null,
                     'inStock' => $product->stock_quantity > 0,
                 ];
             });
@@ -271,11 +292,23 @@ class ProductController extends Controller
             $products = $query->get();
 
             $formattedProducts = $products->map(function ($product) {
+                $basePrice = (float) $product->price;
+                $discountPercent = $product->getActiveDiscountPercent();
+                $discountedPrice = $product->getDiscountedPrice();
+                $hasDiscount = $discountPercent > 0 && $discountedPrice < $basePrice;
+
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
                     'description' => $product->description,
-                    'price' => '$' . number_format($product->price, 2),
+                    'price' => '$' . number_format($hasDiscount ? $discountedPrice : $basePrice, 2),
+                    'price_value' => $basePrice,
+                    'discount_percent' => $discountPercent,
+                    'discount_active' => $hasDiscount,
+                    'discounted_price' => $discountedPrice,
+                    'discounted_price_label' => '$' . number_format($discountedPrice, 2),
+                    'discount_starts_at' => optional($product->discount_starts_at)->toISOString(),
+                    'discount_ends_at' => optional($product->discount_ends_at)->toISOString(),
                     'image' => $product->image_url ?: '/images/default-product.svg',
                     'category' => $product->category ? $product->category->name : 'Uncategorized',
                     'stock' => $product->stock_quantity,
@@ -283,7 +316,7 @@ class ProductController extends Controller
                     'reviews' => rand(10, 100),
                     'badge' => $product->stock_quantity > 0 ? null : 'Out of Stock',
                     'badgeColor' => $product->stock_quantity > 0 ? null : 'bg-red-500',
-                    'oldPrice' => null,
+                    'oldPrice' => $hasDiscount ? '$' . number_format($basePrice, 2) : null,
                     'inStock' => $product->stock_quantity > 0,
                 ];
             });

@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import { addGuestItem } from "@/lib/guestCart";
+import { getPricing } from "@/lib/pricing";
 
 export default function ProductDetailsPage() {
   const { id } = useParams();
@@ -68,12 +69,22 @@ export default function ProductDetailsPage() {
     fetchReviews();
   }, [id, isAuthenticated]);
 
+  const pricing = useMemo(() => {
+    if (!product) {
+      return { basePrice: 0, discountedPrice: 0, discountPercent: 0, discountActive: false };
+    }
+    return getPricing(product);
+  }, [product]);
+
   const priceLabel = useMemo(() => {
     if (!product) return "$0.00";
-    const rawPrice = Number(product.price || 0);
-    if (Number.isNaN(rawPrice)) return product.price || "$0.00";
-    return `$${rawPrice.toFixed(2)}`;
-  }, [product]);
+    return `$${pricing.discountedPrice.toFixed(2)}`;
+  }, [product, pricing]);
+
+  const originalPriceLabel = useMemo(() => {
+    if (!product) return "$0.00";
+    return `$${pricing.basePrice.toFixed(2)}`;
+  }, [product, pricing]);
 
   const stockCount = useMemo(() => {
     if (!product) return 0;
@@ -123,7 +134,7 @@ export default function ProductDetailsPage() {
           {
             id: product.id,
             name: product.name,
-            price: product.price,
+            price: pricing.discountedPrice,
             image: product.image_url || product.image,
           },
           1
@@ -359,6 +370,18 @@ export default function ProductDetailsPage() {
                   <span className="text-2xl sm:text-3xl font-bold text-gray-900">
                     {priceLabel}
                   </span>
+                  {pricing.discountActive &&
+                  pricing.basePrice > pricing.discountedPrice ? (
+                    <span className="text-sm text-gray-500 line-through">
+                      {originalPriceLabel}
+                    </span>
+                  ) : null}
+                  {pricing.discountActive &&
+                  pricing.basePrice > pricing.discountedPrice ? (
+                    <span className="text-xs font-semibold text-rose-600">
+                      -{pricing.discountPercent}%
+                    </span>
+                  ) : null}
                   <span className="text-sm text-gray-600">
                     {stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}
                   </span>

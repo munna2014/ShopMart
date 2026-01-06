@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import PasswordInput from "@/components/PasswordInput";
+import { getPricing } from "@/lib/pricing";
 
 export default function CustomerView({ customer: initialCustomer }) {
   const router = useRouter();
@@ -389,7 +390,15 @@ export default function CustomerView({ customer: initialCustomer }) {
       const mapped = items.map((item) => ({
         id: item.product_id,
         name: item.product?.name,
-        price: Number(item.unit_price || item.product?.price || 0),
+        ...(() => {
+          const pricing = getPricing(item.product || { price: item.unit_price });
+          return {
+            price: pricing.discountedPrice,
+            originalPrice: pricing.basePrice,
+            discountPercent: pricing.discountPercent,
+            discountActive: pricing.discountActive,
+          };
+        })(),
         image: item.product?.image_url || '/images/default-product.svg',
         quantity: item.quantity,
       }));
@@ -1397,6 +1406,10 @@ export default function CustomerView({ customer: initialCustomer }) {
                       0,
                       (product.stock || 0) - cartQuantity
                     );
+                    const pricing = getPricing(product);
+                    const showDiscount =
+                      pricing.discountActive &&
+                      pricing.basePrice > pricing.discountedPrice;
                     return (
                       <div
                         key={product.id}
@@ -1445,8 +1458,15 @@ export default function CustomerView({ customer: initialCustomer }) {
                             </span>
                           </div>
                           <div className="flex items-center justify-between mb-3">
-                            <div className="text-2xl font-bold text-gray-900">
-                              {product.price}
+                            <div className="flex items-center gap-2">
+                              <div className="text-2xl font-bold text-gray-900">
+                                ${pricing.discountedPrice.toFixed(2)}
+                              </div>
+                              {showDiscount ? (
+                                <span className="text-xs text-gray-500 line-through">
+                                  ${pricing.basePrice.toFixed(2)}
+                                </span>
+                              ) : null}
                             </div>
                             <div className="text-sm text-gray-600">
                               {availableStock > 0

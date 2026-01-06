@@ -29,12 +29,18 @@ class Product extends Model
         'highlight_2',
         'highlight_3',
         'highlight_4',
+        'discount_percent',
+        'discount_starts_at',
+        'discount_ends_at',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'stock_quantity' => 'integer',
         'is_active' => 'boolean',
+        'discount_percent' => 'decimal:2',
+        'discount_starts_at' => 'datetime',
+        'discount_ends_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -93,6 +99,41 @@ class Product extends Model
     public function reviews()
     {
         return $this->hasMany(Review::class);
+    }
+
+    /**
+     * Active discount percent for this product.
+     */
+    public function getActiveDiscountPercent(): float
+    {
+        $percent = (float) ($this->discount_percent ?? 0);
+        if ($percent <= 0) {
+            return 0.0;
+        }
+
+        $now = now();
+        if ($this->discount_starts_at && $now->lt($this->discount_starts_at)) {
+            return 0.0;
+        }
+        if ($this->discount_ends_at && $now->gt($this->discount_ends_at)) {
+            return 0.0;
+        }
+
+        return $percent;
+    }
+
+    /**
+     * Discounted price for this product based on active window.
+     */
+    public function getDiscountedPrice(): float
+    {
+        $price = (float) $this->price;
+        $percent = $this->getActiveDiscountPercent();
+        if ($percent <= 0) {
+            return $price;
+        }
+
+        return round($price * (1 - ($percent / 100)), 2);
     }
 
     /**

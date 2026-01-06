@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import { addGuestItem } from "@/lib/guestCart";
+import { getPricing } from "@/lib/pricing";
 
 export default function ProductsPage() {
   const { user, isAuthenticated } = useAuth();
@@ -95,11 +96,12 @@ export default function ProductsPage() {
     setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
     try {
       if (!isAuthenticated) {
+        const pricing = getPricing(product);
         addGuestItem(
           {
             id: product.id,
             name: product.name,
-            price: product.price,
+            price: pricing.discountedPrice,
             image: product.image || product.image_url,
           },
           1
@@ -320,11 +322,17 @@ export default function ProductsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="group bg-white rounded-lg shadow-sm border hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-              >
+            {filteredProducts.map((product) => {
+              const pricing = getPricing(product);
+              const showDiscount =
+                pricing.discountActive &&
+                pricing.basePrice > pricing.discountedPrice;
+
+              return (
+                <div
+                  key={product.id}
+                  className="group bg-white rounded-lg shadow-sm border hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                >
                 {product.badge && (
                   <div
                     className={`absolute top-3 left-3 ${
@@ -380,9 +388,16 @@ export default function ProductsPage() {
                   </div>
 
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xl font-bold text-gray-900">
-                      {product.price}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-bold text-gray-900">
+                        ${pricing.discountedPrice.toFixed(2)}
+                      </span>
+                      {showDiscount ? (
+                        <span className="text-xs text-gray-500 line-through">
+                          ${pricing.basePrice.toFixed(2)}
+                        </span>
+                      ) : null}
+                    </div>
                     <span className="text-sm text-gray-600">
                       {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
                     </span>
@@ -404,8 +419,9 @@ export default function ProductsPage() {
                       : 'Out of Stock'}
                   </button>
                 </div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

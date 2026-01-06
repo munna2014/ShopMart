@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
+import { getPricing } from "@/lib/pricing";
 import {
   addGuestItem,
   getGuestCart,
@@ -721,6 +722,10 @@ export default function HomeClient() {
                   (product.stock || 0) - cartQuantity
                 );
                 const atStockLimit = availableStock === 0 && cartQuantity > 0;
+                const pricing = getPricing(product);
+                const showDiscount =
+                  pricing.discountActive &&
+                  pricing.basePrice > pricing.discountedPrice;
 
                 return (
               <div
@@ -779,13 +784,18 @@ export default function HomeClient() {
 
                   <div className="flex items-center gap-2 mb-4">
                     <span className="text-2xl font-bold text-gray-900">
-                      {product.price || `$${parseFloat(product.price || 0).toFixed(2)}`}
+                      ${pricing.discountedPrice.toFixed(2)}
                     </span>
-                    {product.oldPrice && (
+                    {showDiscount ? (
                       <span className="text-lg text-gray-400 line-through">
-                        {product.oldPrice}
+                        ${pricing.basePrice.toFixed(2)}
                       </span>
-                    )}
+                    ) : null}
+                    {showDiscount ? (
+                      <span className="text-xs font-semibold text-rose-600">
+                        -{pricing.discountPercent}%
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="flex items-center justify-between mb-3">

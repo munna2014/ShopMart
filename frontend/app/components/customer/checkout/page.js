@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import { getGuestCart, mergeGuestCartToServer } from "@/lib/guestCart";
+import { getPricing } from "@/lib/pricing";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -41,7 +42,15 @@ export default function CheckoutPage() {
         const mapped = items.map((item) => ({
           id: item.product_id,
           name: item.product?.name,
-          price: Number(item.unit_price || item.product?.price || 0),
+          ...(() => {
+            const pricing = getPricing(item.product || { price: item.unit_price });
+            return {
+              price: pricing.discountedPrice,
+              originalPrice: pricing.basePrice,
+              discountPercent: pricing.discountPercent,
+              discountActive: pricing.discountActive,
+            };
+          })(),
           image: item.product?.image_url || "/images/default-product.svg",
           quantity: item.quantity,
         }));
@@ -209,6 +218,11 @@ export default function CheckoutPage() {
                           <div className="font-semibold text-gray-900">{item.name}</div>
                           <div className="text-sm text-gray-500">
                             {item.quantity} x {"$" + Number(item.price || 0).toFixed(2)}
+                            {item.discountActive && item.originalPrice > item.price ? (
+                              <span className="ml-2 text-xs text-gray-400 line-through">
+                                ${Number(item.originalPrice || 0).toFixed(2)}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       </div>

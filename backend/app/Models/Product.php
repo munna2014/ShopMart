@@ -11,6 +11,7 @@ class Product extends Model
 
     protected $fillable = [
         'name',
+        'sku',
         'description',
         'price',
         'currency',
@@ -18,6 +19,16 @@ class Product extends Model
         'image_url',
         'is_active',
         'category_id',
+        'color',
+        'material',
+        'brand',
+        'size',
+        'weight',
+        'dimensions',
+        'highlight_1',
+        'highlight_2',
+        'highlight_3',
+        'highlight_4',
     ];
 
     protected $casts = [
@@ -74,6 +85,14 @@ class Product extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Reviews for this product
+     */
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
     }
 
     /**

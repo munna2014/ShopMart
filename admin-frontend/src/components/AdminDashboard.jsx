@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/axios";
 
@@ -7,11 +7,10 @@ import api from "../lib/axios";
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [showEditProduct, setShowEditProduct] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const { user, loading, isAuthenticated, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Form state for adding products
   const [productForm, setProductForm] = useState({
@@ -20,10 +19,44 @@ export default function AdminDashboard() {
     price: '',
     stock_quantity: '',
     category_id: '',
+    sku: '',
+    color: '',
+    material: '',
+    brand: '',
+    size: '',
+    weight: '',
+    dimensions: '',
+    highlight_1: '',
+    highlight_2: '',
+    highlight_3: '',
+    highlight_4: '',
     image: null
   });
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("tab");
+    if (tab && tab !== activeTab) {
+      setActiveTab(tab);
+      return;
+    }
+    if (!tab && activeTab !== "dashboard") {
+      setActiveTab("dashboard");
+    }
+  }, [location.search, activeTab]);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    const params = new URLSearchParams(location.search);
+    if (tabId === "dashboard") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tabId);
+    }
+    navigate({ pathname: "/", search: params.toString() }, { replace: true });
+  };
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -114,6 +147,7 @@ export default function AdminDashboard() {
             name: item.product?.name || "Product",
             quantity: item.quantity,
             price: `$${Number(item.unit_price || 0).toFixed(2)}`,
+            imageUrl: item.product?.image_url || item.product?.image || "",
           })),
         };
       });
@@ -295,71 +329,6 @@ export default function AdminDashboard() {
     return Object.keys(errors).length === 0;
   };
 
-  // Handle form submission
-  const handleUpdateProduct = async () => {
-    if (!selectedProduct) return;
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const payload = {
-        name: productForm.name.trim(),
-        description: productForm.description.trim() || null,
-        price: parseFloat(productForm.price),
-        stock_quantity: parseInt(productForm.stock_quantity),
-        category_id: productForm.category_id,
-      };
-
-      let response;
-
-      if (productForm.image) {
-        const formData = new FormData();
-        formData.append('name', payload.name);
-        formData.append('description', payload.description ?? '');
-        formData.append('price', payload.price);
-        formData.append('stock_quantity', payload.stock_quantity);
-        formData.append('category_id', payload.category_id);
-        formData.append('image', productForm.image);
-
-        response = await api.post(`/admin/products/${selectedProduct.id}?_method=PUT`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-      } else {
-        response = await api.put(`/admin/products/${selectedProduct.id}`, payload);
-      }
-
-      if (response.data.status === 'success') {
-        const updatedProduct = response.data.data;
-        setProducts((prev) =>
-          prev.map((item) =>
-            String(item.id) === String(updatedProduct.id) ? updatedProduct : item
-          )
-        );
-        alert('Product updated successfully!');
-        closeModals();
-        await fetchProducts();
-      } else {
-        throw new Error(response.data.message || 'Failed to update product');
-      }
-    } catch (error) {
-      console.error('Error updating product:', error);
-
-      if (error.response?.data?.errors) {
-        setFormErrors(error.response.data.errors);
-      } else {
-        alert(error.response?.data?.message || 'Failed to update product. Please try again.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleAddProduct = async () => {
     if (!validateForm()) {
       return;
@@ -375,6 +344,17 @@ export default function AdminDashboard() {
         price: productForm.price,
         stock_quantity: productForm.stock_quantity,
         category_id: productForm.category_id,
+        sku: productForm.sku,
+        color: productForm.color,
+        material: productForm.material,
+        brand: productForm.brand,
+        size: productForm.size,
+        weight: productForm.weight,
+        dimensions: productForm.dimensions,
+        highlight_1: productForm.highlight_1,
+        highlight_2: productForm.highlight_2,
+        highlight_3: productForm.highlight_3,
+        highlight_4: productForm.highlight_4,
         image: productForm.image ? productForm.image.name : 'No image'
       });
 
@@ -384,6 +364,17 @@ export default function AdminDashboard() {
       formData.append('price', parseFloat(productForm.price));
       formData.append('stock_quantity', parseInt(productForm.stock_quantity));
       formData.append('category_id', productForm.category_id);
+      formData.append('sku', productForm.sku.trim());
+      formData.append('color', productForm.color.trim());
+      formData.append('material', productForm.material.trim());
+      formData.append('brand', productForm.brand.trim());
+      formData.append('size', productForm.size.trim());
+      formData.append('weight', productForm.weight.trim());
+      formData.append('dimensions', productForm.dimensions.trim());
+      formData.append('highlight_1', productForm.highlight_1.trim());
+      formData.append('highlight_2', productForm.highlight_2.trim());
+      formData.append('highlight_3', productForm.highlight_3.trim());
+      formData.append('highlight_4', productForm.highlight_4.trim());
       
       if (productForm.image) {
         formData.append('image', productForm.image);
@@ -426,6 +417,17 @@ export default function AdminDashboard() {
       price: '',
       stock_quantity: '',
       category_id: '',
+      sku: '',
+      color: '',
+      material: '',
+      brand: '',
+      size: '',
+      weight: '',
+      dimensions: '',
+      highlight_1: '',
+      highlight_2: '',
+      highlight_3: '',
+      highlight_4: '',
       image: null
     });
     setFormErrors({});
@@ -482,18 +484,11 @@ export default function AdminDashboard() {
   };
 
   const handleEditProduct = (product) => {
-    setSelectedProduct(product);
-    setProductForm({
-      name: product?.name || '',
-      description: product?.description || '',
-      price: product?.price ?? '',
-      stock_quantity: product?.stock_quantity ?? '',
-      category_id: product?.category_id || product?.category?.id || '',
-      image: null
-    });
-    setFormErrors({});
-    setImagePreview(product?.image_url || null);
-    setShowEditProduct(true);
+    handleOpenProduct(product.id);
+  };
+
+  const handleOpenProduct = (productId) => {
+    navigate(`/admin_product_details/${productId}`);
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
@@ -513,8 +508,6 @@ export default function AdminDashboard() {
 
   const closeModals = () => {
     setShowAddProduct(false);
-    setShowEditProduct(false);
-    setSelectedProduct(null);
     resetForm();
   };
 
@@ -649,7 +642,7 @@ export default function AdminDashboard() {
             ].map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleTabChange(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   activeTab === item.id
                     ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white"
@@ -751,7 +744,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <button
                     onClick={() => {
-                      setActiveTab("products");
+                      handleTabChange("products");
                       setShowAddProduct(true);
                     }}
                     className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl hover:border-green-600 hover:bg-purple-50 transition-all"
@@ -777,7 +770,7 @@ export default function AdminDashboard() {
                   </button>
 
                   <button
-                    onClick={() => setActiveTab("customers")}
+                    onClick={() => handleTabChange("customers")}
                     className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl hover:border-blue-600 hover:bg-blue-50 transition-all"
                   >
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -801,7 +794,7 @@ export default function AdminDashboard() {
                   </button>
 
                   <button
-                    onClick={() => setActiveTab("products")}
+                    onClick={() => handleTabChange("products")}
                     className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl hover:border-green-600 hover:bg-green-50 transition-all"
                   >
                     <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -938,9 +931,9 @@ export default function AdminDashboard() {
                                 )}
                               </div>
                               <div>
-                                <div className="text-sm font-medium text-gray-900">
+                                <span className="text-sm font-semibold text-gray-900">
                                   {product.name}
-                                </div>
+                                </span>
                                 {product.description && (
                                   <div className="text-xs text-gray-500 truncate max-w-xs">
                                     {product.description}
@@ -1029,7 +1022,7 @@ export default function AdminDashboard() {
           {/* Orders Tab */}
           {activeTab === "orders" && (
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-8">
+              <h2 className="text-3xl font-extrabold text-emerald-900 drop-shadow-sm mb-8">
                 Orders Management
               </h2>
 
@@ -1037,13 +1030,13 @@ export default function AdminDashboard() {
                 {orders.map((order) => (
                   <div
                     key={order.id}
-                    className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100"
+                    className="bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-200 ring-2 ring-emerald-100"
                   >
                     {/* Order Header */}
-                    <div className="p-6 bg-gray-50 border-b">
+                    <div className="p-6 bg-gradient-to-r from-emerald-100 via-lime-50 to-sky-100 border-b border-emerald-200">
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
-                          <h3 className="text-lg font-bold text-gray-900">
+                          <h3 className="text-lg font-extrabold text-emerald-900">
                             {order.orderId}
                           </h3>
                           <p className="text-sm text-gray-600 mt-1">
@@ -1056,28 +1049,28 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <div className="text-sm text-gray-600">
+                            <div className="text-xs uppercase tracking-wide text-slate-500">
                               Order Date
                             </div>
-                            <div className="font-semibold text-gray-900">
+                            <div className="font-semibold text-slate-900">
                               {order.date}
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-sm text-gray-600">Total</div>
-                            <div className="text-lg font-bold text-gray-900">
+                            <div className="text-xs uppercase tracking-wide text-slate-500">Total</div>
+                            <div className="text-lg font-extrabold text-emerald-700">
                               {order.total}
                             </div>
                           </div>
                           <span
-                            className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                            className={`px-4 py-2 rounded-full text-sm font-semibold shadow-sm ring-2 ${
                               order.status === "Delivered"
-                                ? "bg-green-100 text-green-800"
+                                ? "bg-emerald-200 text-emerald-900 ring-emerald-300"
                                 : order.status === "Shipped"
-                                ? "bg-blue-100 text-blue-800"
+                                ? "bg-sky-200 text-sky-900 ring-sky-300"
                                 : order.status === "Pending"
-                                ? "bg-gray-100 text-gray-800"
-                                : "bg-yellow-100 text-yellow-800"
+                                ? "bg-amber-200 text-amber-900 ring-amber-300"
+                                : "bg-rose-200 text-rose-900 ring-rose-300"
                             }`}
                           >
                             {order.status}
@@ -1095,26 +1088,34 @@ export default function AdminDashboard() {
                         {order.products.map((product, index) => (
                           <div
                             key={index}
-                            className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                            className="flex items-center justify-between p-4 rounded-xl border border-emerald-200 bg-gradient-to-r from-white via-emerald-50/70 to-sky-50/70 shadow-sm"
                           >
                             <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center">
-                                <svg
-                                  className="w-6 h-6 text-green-600"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                >
-                                  <path
-                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
+                              <div className="w-12 h-12 bg-gradient-to-br from-emerald-200 to-sky-200 rounded-lg flex items-center justify-center overflow-hidden ring-2 ring-emerald-300">
+                                {product.imageUrl ? (
+                                  <img
+                                    src={product.imageUrl}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
                                   />
-                                </svg>
+                                ) : (
+                                  <svg
+                                    className="w-6 h-6 text-green-600"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <path
+                                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                )}
                               </div>
                               <div>
-                                <div className="font-medium text-gray-900">
+                                <div className="font-semibold text-gray-900">
                                   {product.name}
                                 </div>
                                 <div className="text-sm text-gray-600">
@@ -1122,7 +1123,7 @@ export default function AdminDashboard() {
                                 </div>
                               </div>
                             </div>
-                            <div className="text-lg font-bold text-gray-900">
+                            <div className="text-lg font-extrabold text-emerald-800">
                               {product.price}
                             </div>
                           </div>
@@ -1138,30 +1139,30 @@ export default function AdminDashboard() {
           {/* Tracking Tab */}
           {activeTab === "tracking" && (
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-8">
+              <h2 className="text-3xl font-extrabold text-emerald-900 drop-shadow-sm mb-8">
                 Order Tracking & Status Management
               </h2>
 
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-200 ring-2 ring-emerald-100">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gradient-to-r from-emerald-100 via-lime-50 to-sky-100">
                     <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Order ID
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Customer
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Date
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Total
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Current Status
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Update Status
                       </th>
                     </tr>
@@ -1170,9 +1171,9 @@ export default function AdminDashboard() {
                     {orders.map((order) => (
                       <tr
                         key={order.id}
-                        className="hover:bg-gray-50 transition-colors"
+                        className="hover:bg-emerald-100/70 transition-colors"
                       >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 text-sm font-extrabold text-slate-900">
                           {order.orderId}
                         </td>
                         <td className="px-6 py-4">
@@ -1186,21 +1187,21 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 text-sm text-gray-600">
                           {order.date}
                         </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                        <td className="px-6 py-4 text-sm font-extrabold text-emerald-800">
                           {order.total}
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                            className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold shadow-sm ring-2 ${
                               order.status === "Delivered"
-                                ? "bg-green-100 text-black"
+                                ? "bg-emerald-200 text-emerald-900 ring-emerald-300"
                                 : order.status === "Shipped"
-                                ? "bg-blue-100 text-black"
+                                ? "bg-sky-200 text-sky-900 ring-sky-300"
                                 : order.status === "Processing"
-                                ? "bg-yellow-100 text-black"
+                                ? "bg-amber-200 text-amber-900 ring-amber-300"
                                 : order.status === "Pending"
-                                ? "bg-gray-100 text-black"
-                                : "bg-gray-100 text-black"
+                                ? "bg-slate-200 text-slate-900 ring-slate-300"
+                                : "bg-rose-200 text-rose-900 ring-rose-300"
                             }`}
                           >
                             {order.status}
@@ -1212,7 +1213,7 @@ export default function AdminDashboard() {
                             onChange={(e) =>
                               handleUpdateOrderStatus(order.id, e.target.value)
                             }
-                            className="px-4 text-black py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none text-sm font-medium"
+                            className="px-4 text-black py-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none text-sm font-medium bg-emerald-50/40"
                           >
                             <option value="Pending">Pending</option>
                             <option value="Processing">Processing</option>
@@ -1228,41 +1229,41 @@ export default function AdminDashboard() {
               </div>
 
               {/* Status Legend */}
-              <div className="mt-8 bg-white rounded-2xl shadow-lg p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">
+              <div className="mt-8 bg-white rounded-2xl shadow-xl p-6 border border-emerald-200 ring-2 ring-emerald-100">
+                <h3 className="text-lg font-extrabold text-emerald-900 mb-4">
                   Status Guide
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {[
                     {
                       status: "Pending",
-                      color: "bg-gray-100 text-gray-800",
+                      color: "bg-slate-200 text-slate-900 ring-2 ring-slate-300",
                       desc: "Order received, awaiting processing",
                     },
                     {
                       status: "Processing",
-                      color: "bg-yellow-100 text-yellow-800",
+                      color: "bg-amber-200 text-amber-900 ring-2 ring-amber-300",
                       desc: "Order is being prepared",
                     },
                     {
                       status: "Shipped",
-                      color: "bg-blue-100 text-blue-800",
+                      color: "bg-sky-200 text-sky-900 ring-2 ring-sky-300",
                       desc: "Order is in transit",
                     },
                     {
                       status: "Delivered",
-                      color: "bg-green-100 text-green-800",
+                      color: "bg-emerald-200 text-emerald-900 ring-2 ring-emerald-300",
                       desc: "Order successfully delivered",
                     },
                     {
                       status: "Cancelled",
-                      color: "bg-red-100 text-red-800",
+                      color: "bg-rose-200 text-rose-900 ring-2 ring-rose-300",
                       desc: "Order has been cancelled",
                     },
                   ].map((item, index) => (
                     <div
                       key={index}
-                      className="p-4 border border-gray-200 rounded-lg"
+                      className="p-4 border border-emerald-200 rounded-2xl bg-gradient-to-br from-white via-emerald-50 to-sky-50 shadow-sm"
                     >
                       <span
                         className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${item.color} mb-2`}
@@ -1280,30 +1281,30 @@ export default function AdminDashboard() {
           {/* Customers Tab */}
           {activeTab === "customers" && (
             <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-8">
+              <h2 className="text-3xl font-extrabold text-emerald-900 drop-shadow-sm mb-8">
                 Customers
               </h2>
 
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-200 ring-2 ring-emerald-100">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gradient-to-r from-emerald-100 via-lime-50 to-sky-100">
                     <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Name
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Email
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Orders
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Total Spent
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Joined
                       </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Actions
                       </th>
                     </tr>
@@ -1312,9 +1313,9 @@ export default function AdminDashboard() {
                     {customers.map((customer) => (
                       <tr
                         key={customer.id}
-                        className="hover:bg-gray-50 transition-colors"
+                        className="hover:bg-emerald-100/70 transition-colors"
                       >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 text-sm font-extrabold text-slate-900">
                           {customer.name}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
@@ -1323,7 +1324,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 text-sm text-gray-600">
                           {customer.orders}
                         </td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                        <td className="px-6 py-4 text-sm font-extrabold text-emerald-800">
                           {customer.spent}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
@@ -1521,6 +1522,96 @@ export default function AdminDashboard() {
                   <p className="text-red-500 text-sm mt-1">{formErrors.stock_quantity}</p>
                 )}
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    SKU
+                  </label>
+                  <input
+                    type="text"
+                    value={productForm.sku}
+                    onChange={(e) => handleFormChange('sku', e.target.value)}
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="SKU (optional)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Brand
+                  </label>
+                  <input
+                    type="text"
+                    value={productForm.brand}
+                    onChange={(e) => handleFormChange('brand', e.target.value)}
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Brand (optional)"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Color
+                  </label>
+                  <input
+                    type="text"
+                    value={productForm.color}
+                    onChange={(e) => handleFormChange('color', e.target.value)}
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Color (optional)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Material
+                  </label>
+                  <input
+                    type="text"
+                    value={productForm.material}
+                    onChange={(e) => handleFormChange('material', e.target.value)}
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Material (optional)"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Size
+                  </label>
+                  <input
+                    type="text"
+                    value={productForm.size}
+                    onChange={(e) => handleFormChange('size', e.target.value)}
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Size (optional)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Weight
+                  </label>
+                  <input
+                    type="text"
+                    value={productForm.weight}
+                    onChange={(e) => handleFormChange('weight', e.target.value)}
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Weight (optional)"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dimensions
+                </label>
+                <input
+                  type="text"
+                  value={productForm.dimensions}
+                  onChange={(e) => handleFormChange('dimensions', e.target.value)}
+                  className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                  placeholder="Dimensions (optional)"
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description
@@ -1532,6 +1623,49 @@ export default function AdminDashboard() {
                   className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
                   placeholder="Enter product description (optional)"
                 ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Highlights
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    value={productForm.highlight_1}
+                    onChange={(e) =>
+                      handleFormChange('highlight_1', e.target.value)
+                    }
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Highlight 1"
+                  />
+                  <input
+                    type="text"
+                    value={productForm.highlight_2}
+                    onChange={(e) =>
+                      handleFormChange('highlight_2', e.target.value)
+                    }
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Highlight 2"
+                  />
+                  <input
+                    type="text"
+                    value={productForm.highlight_3}
+                    onChange={(e) =>
+                      handleFormChange('highlight_3', e.target.value)
+                    }
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Highlight 3"
+                  />
+                  <input
+                    type="text"
+                    value={productForm.highlight_4}
+                    onChange={(e) =>
+                      handleFormChange('highlight_4', e.target.value)
+                    }
+                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
+                    placeholder="Highlight 4"
+                  />
+                </div>
               </div>
             </div>
             <div className="p-6 border-t flex gap-3">
@@ -1564,159 +1698,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Edit Product Modal */}
-      {showEditProduct && selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b">
-              <h3 className="text-2xl font-bold text-gray-900">Edit Product</h3>
-            </div>
-            <div className="p-6 space-y-4">
-              {/* Image Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Product Image
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-600 transition-colors">
-                  {imagePreview ? (
-                    <div className="relative">
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="max-h-48 mx-auto rounded-lg"
-                      />
-                      <button
-                        onClick={() => setImagePreview(null)}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
-                      >
-                        <svg
-                          className="w-4 h-4"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path
-                            d="M6 18L18 6M6 6l12 12"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      <svg
-                        className="w-12 h-12 text-gray-400 mx-auto mb-2"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Click to upload or drag and drop
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        PNG, JPG up to 10MB
-                      </p>
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                    id="edit-product-image"
-                  />
-                  <label
-                    htmlFor="edit-product-image"
-                    className="mt-4 inline-block px-4 py-2 bg-green-600 text-white rounded-lg cursor-pointer hover:bg-green-700 transition-colors"
-                  >
-                    Choose File
-                  </label>
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Product Name
-                </label>
-                <input
-                  type="text"
-                  value={productForm.name}
-                  onChange={(e) => handleFormChange('name', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category
-                  </label>
-                  <select
-                    value={productForm.category_id}
-                    onChange={(e) => handleFormChange('category_id', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
-                  >
-                    <option value="">Select a category</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={productForm.price}
-                    onChange={(e) => handleFormChange('price', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Stock Quantity
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={productForm.stock_quantity}
-                  onChange={(e) => handleFormChange('stock_quantity', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-            <div className="p-6 border-t flex gap-3">
-              <button
-                onClick={closeModals}
-                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdateProduct}
-                disabled={isSubmitting}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

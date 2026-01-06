@@ -1403,7 +1403,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                         className="bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden hover:shadow-green-200/50 transition-all group"
                       >
                         <Link
-                          href={`/productDetails/${product.id}`}
+                          href={`/customer_product_details/${product.id}`}
                           className="relative block"
                         >
                           <img
@@ -1425,7 +1425,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                             {product.category}
                           </div>
                           <Link
-                            href={`/productDetails/${product.id}`}
+                            href={`/customer_product_details/${product.id}`}
                             className="text-lg font-bold text-gray-900 mb-2 hover:text-green-700 transition-colors block"
                           >
                             {product.name}

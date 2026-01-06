@@ -738,7 +738,7 @@ export default function HomeClient() {
                 )}
 
                 <Link
-                  href={`/productDetails/${product.id}`}
+                  href={`/customer_product_details/${product.id}`}
                   className="relative aspect-square overflow-hidden block"
                 >
                   <img
@@ -761,7 +761,7 @@ export default function HomeClient() {
                     )}
                   </div>
                   <Link
-                    href={`/productDetails/${product.id}`}
+                    href={`/customer_product_details/${product.id}`}
                     className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 hover:text-green-700 transition-colors block"
                   >
                     {product.name}

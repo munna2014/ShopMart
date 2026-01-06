@@ -220,7 +220,7 @@ export default function CartPage() {
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-gray-200 rounded-xl"
                   >
                     <Link
-                      href={`/productDetails/${item.id}`}
+                      href={`/customer_product_details/${item.id}`}
                       className="flex items-center gap-4 group"
                     >
                       <img

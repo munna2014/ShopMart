@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AdminDashboard from "./components/AdminDashboard";
+import AdminProductDetails from "./components/AdminProductDetails";
 import Login from "./pages/Login";
 import "./App.css";
 
@@ -58,6 +59,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin_product_details/:id"
+            element={
+              <ProtectedRoute>
+                <AdminProductDetails />
               </ProtectedRoute>
             }
           />

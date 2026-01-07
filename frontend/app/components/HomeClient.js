@@ -19,6 +19,10 @@ export default function HomeClient() {
   const [currentImageSet, setCurrentImageSet] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsFetched, setNotificationsFetched] = useState(false);
+  const [hasToken, setHasToken] = useState(false);
   
   // State for real data
   const [stats, setStats] = useState({
@@ -98,6 +102,8 @@ export default function HomeClient() {
     setMounted(true);
     if (typeof window !== "undefined") {
       const cachedStats = localStorage.getItem("home_stats_cache");
+      const token = localStorage.getItem("token");
+      setHasToken(Boolean(token));
       if (cachedStats) {
         try {
           const parsed = JSON.parse(cachedStats);
@@ -110,6 +116,44 @@ export default function HomeClient() {
     }
     fetchHomeData();
   }, []);
+
+  const fetchNotifications = async ({ force = false } = {}) => {
+    if (notificationsLoading || (notificationsFetched && !force)) {
+      return;
+    }
+    setNotificationsLoading(true);
+    try {
+      const response = await api.get('/notifications');
+      setUnreadNotifications(response.data.unread_count || 0);
+      setNotificationsFetched(true);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setUnreadNotifications(0);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (hasToken) {
+      fetchNotifications();
+    }
+  }, [hasToken]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+    if (isAuthenticated) {
+      setHasToken(true);
+      fetchNotifications();
+    } else {
+      setHasToken(false);
+      setUnreadNotifications(0);
+    }
+  }, [loading, isAuthenticated]);
+
+  const showCustomerNav = isAuthenticated || (loading && hasToken);
 
   // Rotate images every 3 seconds
   useEffect(() => {
@@ -408,8 +452,32 @@ export default function HomeClient() {
 
             {/* Right Side - Auth Buttons */}
             <div className="flex items-center gap-4 ml-auto">
-              {loading ? null : isAuthenticated ? (
+              {loading && !showCustomerNav ? null : showCustomerNav ? (
                 <>
+                  <button
+                    onClick={() => router.push("/components/customer?tab=notifications")}
+                    className="relative p-2 text-green-600 hover:text-green-700 transition-colors"
+                    aria-label="Notifications"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path
+                        d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    {unreadNotifications > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                      </span>
+                    )}
+                  </button>
                   <div className="relative">
                     <button
                       onClick={() => setMenuOpen((prev) => !prev)}

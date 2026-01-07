@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Services\ProductService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
@@ -94,6 +95,79 @@ class ProductController extends Controller
                 'status' => 'error',
                 'message' => 'Failed to create product',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Store multiple products at once.
+     */
+    public function bulkStore(Request $request): JsonResponse
+    {
+        try {
+            $validatedData = $request->validate([
+                'products' => 'required|array|min:1',
+                'products.*.name' => 'required|string|max:255',
+                'products.*.sku' => 'nullable|string|max:100',
+                'products.*.description' => 'nullable|string',
+                'products.*.price' => 'required|numeric|min:0',
+                'products.*.currency' => 'nullable|string|max:3',
+                'products.*.stock_quantity' => 'required|integer|min:0',
+                'products.*.category_id' => 'required|exists:categories,id',
+                'products.*.is_active' => 'boolean',
+                'products.*.color' => 'nullable|string|max:100',
+                'products.*.material' => 'nullable|string|max:100',
+                'products.*.brand' => 'nullable|string|max:100',
+                'products.*.size' => 'nullable|string|max:100',
+                'products.*.weight' => 'nullable|string|max:100',
+                'products.*.dimensions' => 'nullable|string|max:150',
+                'products.*.highlight_1' => 'nullable|string|max:255',
+                'products.*.highlight_2' => 'nullable|string|max:255',
+                'products.*.highlight_3' => 'nullable|string|max:255',
+                'products.*.highlight_4' => 'nullable|string|max:255',
+                'products.*.discount_percent' => 'nullable|numeric|min:0|max:100',
+                'products.*.discount_starts_at' => 'nullable|date',
+                'products.*.discount_ends_at' => 'nullable|date',
+                'products.*.image_url' => 'nullable|string|max:500',
+            ]);
+
+            foreach ($validatedData['products'] as $index => $productData) {
+                if (!empty($productData['discount_starts_at']) && !empty($productData['discount_ends_at'])) {
+                    if ($productData['discount_ends_at'] < $productData['discount_starts_at']) {
+                        throw ValidationException::withMessages([
+                            "products.{$index}.discount_ends_at" => [
+                                'End date must be on or after start date.',
+                            ],
+                        ]);
+                    }
+                }
+            }
+
+            $createdProducts = DB::transaction(function () use ($validatedData) {
+                $products = [];
+                foreach ($validatedData['products'] as $productData) {
+                    $product = $this->productService->createProduct($productData, null);
+                    $products[] = $product->load('category');
+                }
+                return $products;
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $createdProducts,
+                'message' => 'Products created successfully',
+            ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to create products',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

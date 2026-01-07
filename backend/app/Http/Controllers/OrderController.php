@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\CustomerNotification;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\UserAddress;
@@ -171,6 +172,38 @@ class OrderController extends Controller
     }
 
     /**
+     * Delete a cancelled order (admin).
+     */
+    public function adminDestroy(int $id): JsonResponse
+    {
+        try {
+            $order = Order::findOrFail($id);
+
+            if ($order->status !== 'CANCELLED') {
+                throw ValidationException::withMessages([
+                    'status' => ['Only cancelled orders can be deleted.'],
+                ]);
+            }
+
+            DB::transaction(function () use ($order) {
+                $order->delete();
+            });
+
+            return response()->json([
+                'status' => 'success',
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to delete order',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Cancel a pending order (customer).
      */
     public function cancel(Request $request, int $id): JsonResponse
@@ -233,8 +266,25 @@ class OrderController extends Controller
         ]);
 
         $order = Order::findOrFail($id);
+        $previousStatus = $order->status;
         $order->status = $validated['status'];
         $order->save();
+
+        if ($previousStatus !== $order->status && in_array($order->status, ['SHIPPED', 'CANCELLED'], true)) {
+            $orderLabel = sprintf('#ORD-%05d', $order->id);
+            $statusLabel = $order->status === 'SHIPPED' ? 'shipped' : 'cancelled';
+            $title = $order->status === 'SHIPPED' ? 'Order shipped' : 'Order cancelled';
+            $type = $order->status === 'SHIPPED' ? 'ORDER_SHIPPED' : 'ORDER_CANCELLED';
+
+            CustomerNotification::create([
+                'user_id' => $order->user_id,
+                'order_id' => $order->id,
+                'type' => $type,
+                'title' => $title,
+                'message' => "Your order {$orderLabel} has been {$statusLabel}.",
+                'is_read' => false,
+            ]);
+        }
 
         $shipment = Shipment::where('order_id', $order->id)->first();
         if ($shipment) {

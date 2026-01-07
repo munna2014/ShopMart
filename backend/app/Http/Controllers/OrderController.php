@@ -7,9 +7,11 @@ use App\Models\CustomerNotification;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\UserAddress;
+use App\Mail\OrderShipped;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
@@ -270,7 +272,9 @@ class OrderController extends Controller
         $order->status = $validated['status'];
         $order->save();
 
-        if ($previousStatus !== $order->status && in_array($order->status, ['SHIPPED', 'CANCELLED'], true)) {
+        $statusChanged = $previousStatus !== $order->status;
+
+        if ($statusChanged && in_array($order->status, ['SHIPPED', 'CANCELLED'], true)) {
             $orderLabel = sprintf('#ORD-%05d', $order->id);
             $statusLabel = $order->status === 'SHIPPED' ? 'shipped' : 'cancelled';
             $title = $order->status === 'SHIPPED' ? 'Order shipped' : 'Order cancelled';
@@ -284,6 +288,12 @@ class OrderController extends Controller
                 'message' => "Your order {$orderLabel} has been {$statusLabel}.",
                 'is_read' => false,
             ]);
+        }
+
+        if ($statusChanged && $order->status === 'SHIPPED') {
+            if ($order->user && $order->user->email) {
+                Mail::to($order->user->email)->queue(new OrderShipped($order));
+            }
         }
 
         $shipment = Shipment::where('order_id', $order->id)->first();

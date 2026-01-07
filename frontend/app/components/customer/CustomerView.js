@@ -34,6 +34,13 @@ export default function CustomerView({ customer: initialCustomer }) {
   const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [cancellingOrders, setCancellingOrders] = useState({});
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsLoaded, setNotificationsLoaded] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [deletingNotifications, setDeletingNotifications] = useState({});
+  const [clearingNotifications, setClearingNotifications] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [addressForm, setAddressForm] = useState({
@@ -238,6 +245,11 @@ export default function CustomerView({ customer: initialCustomer }) {
       icon: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z",
     },
     {
+      id: "notifications",
+      label: "Notifications",
+      icon: "M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0",
+    },
+    {
       id: "shop",
       label: "Shop",
       icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 3 3 0 014 0z",
@@ -267,7 +279,10 @@ export default function CustomerView({ customer: initialCustomer }) {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab && ["profile", "orders", "shop", "addresses", "settings"].includes(tab)) {
+    if (
+      tab &&
+      ["profile", "orders", "notifications", "shop", "addresses", "settings"].includes(tab)
+    ) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -339,22 +354,45 @@ export default function CustomerView({ customer: initialCustomer }) {
     };
   }, [activeTab, productSearch]);
 
-  // Fetch orders when Orders tab is active
+  // Fetch orders when needed (skip initial load for notifications to keep it snappy)
   useEffect(() => {
-    if (activeTab === "orders") {
+    if (activeTab === "notifications") {
+      return;
+    }
+    if (activeTab === "orders" || activeTab === "profile") {
       fetchOrders();
     }
   }, [activeTab]);
 
-  // Fetch orders once on load to keep stats in sync after refresh
   useEffect(() => {
-    fetchOrders();
+    if (activeTab !== "orders" || !selectedOrderId) {
+      return;
+    }
+
+    const row = document.getElementById(`order-row-${selectedOrderId}`);
+    if (row) {
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [activeTab, selectedOrderId, orders]);
+
+  // Fetch notifications when Notifications tab is active
+  useEffect(() => {
+    if (activeTab === "notifications") {
+      fetchNotifications();
+    }
+  }, [activeTab]);
+
+  // Fetch notifications once on load
+  useEffect(() => {
+    fetchNotifications();
   }, []);
 
-  // Load cart from database on mount
+  // Load cart only when the shop tab is active
   useEffect(() => {
-    fetchCart();
-  }, []);
+    if (activeTab === "shop") {
+      fetchCart();
+    }
+  }, [activeTab]);
 
   const fetchAddresses = async () => {
     try {
@@ -410,6 +448,25 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
+  const fetchNotifications = async ({ force = false } = {}) => {
+    try {
+      if (notificationsLoading || (!force && notificationsLoaded)) {
+        return;
+      }
+      setNotificationsLoading(true);
+      const response = await api.get('/notifications');
+      setNotifications(response.data.notifications || []);
+      setUnreadNotifications(response.data.unread_count || 0);
+      setNotificationsLoaded(true);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
+      setUnreadNotifications(0);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
   const fetchCategories = async () => {
     try {
       setCategoriesLoading(true);
@@ -425,6 +482,97 @@ export default function CustomerView({ customer: initialCustomer }) {
 
   const toggleOrderDetails = (orderId) => {
     setExpandedOrderId((prev) => (prev === orderId ? null : orderId));
+  };
+
+  const formatOrderLabel = (orderId) => {
+    if (!orderId) return "Order";
+    return `#ORD-${String(orderId).padStart(5, "0")}`;
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification) {
+      return;
+    }
+
+    if (!notification.is_read) {
+      try {
+        await api.patch(`/notifications/${notification.id}/read`);
+        setNotifications((prev) =>
+          prev.map((item) =>
+            item.id === notification.id
+              ? { ...item, is_read: true, read_at: new Date().toISOString() }
+              : item
+          )
+        );
+        setUnreadNotifications((prev) => Math.max(prev - 1, 0));
+      } catch (error) {
+        console.error("Error marking notification as read:", error);
+      }
+    }
+
+    if (notification.order_id) {
+      await fetchOrders({ force: true });
+      setSelectedOrderId(notification.order_id);
+      setExpandedOrderId(notification.order_id);
+      setActiveTab("orders");
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await api.patch('/notifications/read-all');
+      setNotifications((prev) =>
+        prev.map((item) => ({
+          ...item,
+          is_read: true,
+          read_at: item.read_at || new Date().toISOString(),
+        }))
+      );
+      setUnreadNotifications(0);
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      alert(error.response?.data?.message || "Failed to mark notifications as read.");
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId, wasUnread) => {
+    if (!confirm("Delete this notification?")) {
+      return;
+    }
+
+    setDeletingNotifications((prev) => ({ ...prev, [notificationId]: true }));
+    try {
+      await api.delete(`/notifications/${notificationId}`);
+      setNotifications((prev) =>
+        prev.filter((notification) => notification.id !== notificationId)
+      );
+      if (wasUnread) {
+        setUnreadNotifications((prev) => Math.max(prev - 1, 0));
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      alert(error.response?.data?.message || "Failed to delete notification.");
+    } finally {
+      setDeletingNotifications((prev) => ({ ...prev, [notificationId]: false }));
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    if (!confirm("Clear all notifications?")) {
+      return;
+    }
+
+    setClearingNotifications(true);
+    try {
+      await api.delete('/notifications');
+      setNotifications([]);
+      setUnreadNotifications(0);
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+      alert(error.response?.data?.message || "Failed to clear notifications.");
+    } finally {
+      setClearingNotifications(false);
+    }
   };
 
   const fetchCart = async () => {
@@ -818,6 +966,26 @@ export default function CustomerView({ customer: initialCustomer }) {
 
             {/* Right Side - Menu */}
             <div className="flex items-center gap-4">
+              <button
+                onClick={() => setActiveTab("notifications")}
+                className="relative p-2 text-green-600 hover:text-green-700 transition-colors"
+                aria-label="Notifications"
+              >
+                <svg
+                  className="w-6 h-6"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                  </span>
+                )}
+              </button>
               <div className="relative">
                 <button
                   onClick={() => setTabMenuOpen((prev) => !prev)}
@@ -864,7 +1032,12 @@ export default function CustomerView({ customer: initialCustomer }) {
                             strokeLinejoin="round"
                           />
                         </svg>
-                        {tab.label}
+                        <span className="flex-1 text-left">{tab.label}</span>
+                        {tab.id === "notifications" && unreadNotifications > 0 && (
+                          <span className="min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                            {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                          </span>
+                        )}
                       </button>
                     ))}
                     <button
@@ -1181,10 +1354,18 @@ export default function CustomerView({ customer: initialCustomer }) {
                         const showDetails = expandedOrderId === order.id;
                         const isPending = order.status === "PENDING";
                         const isCancelling = Boolean(cancellingOrders[order.id]);
+                        const isSelected = order.id === selectedOrderId;
 
                         return (
                           <Fragment key={order.id}>
-                            <tr className="hover:bg-gray-50 transition-colors">
+                            <tr
+                              id={`order-row-${order.id}`}
+                              className={`transition-colors ${
+                                isSelected
+                                  ? "bg-green-50"
+                                  : "hover:bg-gray-50"
+                              }`}
+                            >
                               <td className="px-6 py-4 text-sm font-medium text-gray-900">
                                 {`#ORD-${String(order.id).padStart(5, "0")}`}
                               </td>
@@ -1313,6 +1494,154 @@ export default function CustomerView({ customer: initialCustomer }) {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* Notifications Tab */}
+          {activeTab === "notifications" && (
+            <div className="bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden">
+              <div className="p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Notifications
+                </h2>
+                <div className="flex items-center gap-3">
+                  {unreadNotifications > 0 && (
+                    <button
+                      onClick={handleMarkAllNotificationsRead}
+                      className="px-4 py-2 text-sm font-semibold text-green-700 border border-green-200 rounded-full hover:bg-green-50 transition-colors"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={handleClearNotifications}
+                      disabled={clearingNotifications}
+                      className="px-4 py-2 text-sm font-semibold text-rose-700 border border-rose-200 rounded-full hover:bg-rose-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {clearingNotifications ? "Clearing..." : "Clear all"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => fetchNotifications({ force: true })}
+                    className="px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 rounded-full hover:bg-gray-50 transition-colors"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {notificationsLoading || !notificationsLoaded ? (
+                  <div className="px-6 py-10 text-center text-sm text-gray-500">
+                    Loading notifications...
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="px-6 py-10 text-center text-sm text-gray-500">
+                    No notifications yet.
+                  </div>
+                ) : (
+                  notifications.map((notification) => {
+                    const orderLabel = formatOrderLabel(notification.order_id);
+                    const createdAt = notification.created_at
+                      ? new Date(notification.created_at).toLocaleString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "N/A";
+
+                    const isDeleting = Boolean(
+                      deletingNotifications[notification.id]
+                    );
+
+                    return (
+                      <div
+                        key={notification.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleNotificationClick(notification)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleNotificationClick(notification);
+                          }
+                        }}
+                        className={`w-full text-left px-6 py-4 transition-colors cursor-pointer ${
+                          notification.is_read
+                            ? "bg-white hover:bg-green-50/40"
+                            : "bg-green-50 hover:bg-green-100/70"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-900">
+                                {notification.title || "Notification"}
+                              </span>
+                              {!notification.is_read && (
+                                <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                                  New
+                                </span>
+                              )}
+                            </div>
+                            {notification.message && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                {notification.message}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500 whitespace-nowrap">
+                              {createdAt}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteNotification(
+                                  notification.id,
+                                  !notification.is_read
+                                );
+                              }}
+                              disabled={isDeleting}
+                              className="mt-2 px-2 py-1 text-rose-600 hover:text-rose-700"
+                              aria-label="Delete notification"
+                            >
+                              {isDeleting ? (
+                                "..."
+                              ) : (
+                                <svg
+                                  className="w-4 h-4"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    d="M3 6h18M8 6V4h8v2m-1 0v14a2 2 0 01-2 2H9a2 2 0 01-2-2V6m3 4v8m4-8v8"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                        {notification.order_id && (
+                          <div className="mt-2 text-xs font-semibold text-green-700">
+                            View {orderLabel} in orders
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}

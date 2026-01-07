@@ -1,10 +1,34 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/axios";
+import * as XLSX from "xlsx";
 
 
 export default function AdminDashboard() {
+  const createEmptyBulkProduct = () => ({
+    name: "",
+    category_id: "",
+    price: "",
+    stock_quantity: "",
+    sku: "",
+    color: "",
+    material: "",
+    brand: "",
+    size: "",
+    weight: "",
+    dimensions: "",
+    discount_percent: "",
+    discount_starts_at: "",
+    discount_ends_at: "",
+    image_url: "",
+    description: "",
+    highlight_1: "",
+    highlight_2: "",
+    highlight_3: "",
+    highlight_4: "",
+  });
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
@@ -57,8 +81,14 @@ export default function AdminDashboard() {
     to: 0,
   });
   const [productsLoading, setProductsLoading] = useState(false);
+  const [showBulkAdd, setShowBulkAdd] = useState(false);
+  const [bulkProducts, setBulkProducts] = useState([createEmptyBulkProduct()]);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkRowErrors, setBulkRowErrors] = useState({});
+  const bulkFileInputRef = useRef(null);
   const [customers, setCustomers] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [deletingOrders, setDeletingOrders] = useState({});
   const [categories, setCategories] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
@@ -134,9 +164,12 @@ export default function AdminDashboard() {
   const fetchCategories = async () => {
     try {
       const response = await api.get('/categories');
-      setCategories(response.data.categories);
+      const nextCategories = response.data.categories || [];
+      setCategories(nextCategories);
+      return nextCategories;
     } catch (error) {
       console.error('Error fetching categories:', error);
+      return [];
     }
   };
 
@@ -336,6 +369,7 @@ export default function AdminDashboard() {
     user,
     isAdmin,
   ]);
+
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -627,9 +661,358 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteOrder = async (orderId, orderLabel) => {
+    if (!confirm(`Delete ${orderLabel}? This cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingOrders((prev) => ({ ...prev, [orderId]: true }));
+    try {
+      await api.delete(`/admin/orders/${orderId}`);
+      setOrders((prev) => prev.filter((order) => order.id !== orderId));
+      fetchDashboardData();
+      alert("Order deleted successfully");
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      alert(error.response?.data?.message || "Failed to delete order");
+    } finally {
+      setDeletingOrders((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const resetBulkProducts = () => {
+    setBulkProducts([createEmptyBulkProduct()]);
+    setBulkRowErrors({});
+  };
+
+  const normalizeBulkHeader = (header) =>
+    String(header || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+
+  const resolveBulkCategoryId = (value, categoryList = categories) => {
+    if (value === null || value === undefined || String(value).trim() === "") {
+      return "";
+    }
+    const numericValue = Number(value);
+    if (!Number.isNaN(numericValue) && Number.isFinite(numericValue)) {
+      return String(Math.trunc(numericValue));
+    }
+    const match = categoryList.find(
+      (category) =>
+        category.name &&
+        category.name.toLowerCase() === String(value).trim().toLowerCase()
+    );
+    return match ? String(match.id) : "";
+  };
+
+  const toDateInputValue = (value) => {
+    if (!value) return "";
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
+    }
+    return String(value);
+  };
+
+  const mapBulkRow = (rawRow, categoryList = categories) => {
+    const columnMap = {
+      name: "name",
+      productname: "name",
+      category: "category_id",
+      categoryid: "category_id",
+      price: "price",
+      stock: "stock_quantity",
+      stockquantity: "stock_quantity",
+      quantity: "stock_quantity",
+      sku: "sku",
+      color: "color",
+      material: "material",
+      brand: "brand",
+      size: "size",
+      weight: "weight",
+      dimensions: "dimensions",
+      discountpercent: "discount_percent",
+      discount: "discount_percent",
+      discountstart: "discount_starts_at",
+      discountstartdate: "discount_starts_at",
+      discountend: "discount_ends_at",
+      discountenddate: "discount_ends_at",
+      imageurl: "image_url",
+      image: "image_url",
+      description: "description",
+      highlight1: "highlight_1",
+      highlight2: "highlight_2",
+      highlight3: "highlight_3",
+      highlight4: "highlight_4",
+    };
+
+    const mapped = createEmptyBulkProduct();
+    Object.entries(rawRow || {}).forEach(([key, value]) => {
+      const normalized = normalizeBulkHeader(key);
+      const field = columnMap[normalized];
+      if (!field) return;
+      if (field === "category_id") {
+        mapped[field] = resolveBulkCategoryId(value, categoryList);
+        return;
+      }
+      if (field === "discount_starts_at" || field === "discount_ends_at") {
+        mapped[field] = toDateInputValue(value);
+        return;
+      }
+      mapped[field] = value === null || value === undefined ? "" : String(value);
+    });
+    return mapped;
+  };
+
+  const normalizeBulkRow = (row) => {
+    const cleaned = {};
+    Object.entries(row).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        return;
+      }
+      const trimmed = typeof value === "string" ? value.trim() : value;
+      if (trimmed === "") {
+        return;
+      }
+      cleaned[key] = trimmed;
+    });
+    return cleaned;
+  };
+
+  const validateBulkRows = (rows, categoryList = categories) => {
+    const errors = {};
+    const cleanedRows = [];
+
+    rows.forEach((row, index) => {
+      const hasValues = Object.values(row).some(
+        (value) => String(value || "").trim() !== ""
+      );
+      if (!hasValues) {
+        return;
+      }
+
+      const cleaned = normalizeBulkRow(row);
+      const rowErrors = [];
+      const name = cleaned.name || "";
+      const categoryId = resolveBulkCategoryId(
+        cleaned.category_id ?? "",
+        categoryList
+      );
+
+      if (!name) {
+        rowErrors.push("Name is required.");
+      }
+      if (!categoryId) {
+        rowErrors.push("Category is required.");
+      } else if (
+        !categoryList.some((category) => String(category.id) === String(categoryId))
+      ) {
+        rowErrors.push("Category not found.");
+      }
+
+      const priceValue = cleaned.price;
+      const priceNumber = Number(priceValue);
+      if (priceValue === undefined || priceValue === "") {
+        rowErrors.push("Price is required.");
+      } else if (Number.isNaN(priceNumber) || priceNumber < 0) {
+        rowErrors.push("Price must be 0 or greater.");
+      }
+
+      const stockValue = cleaned.stock_quantity;
+      const stockNumber = Number(stockValue);
+      if (stockValue === undefined || stockValue === "") {
+        rowErrors.push("Stock is required.");
+      } else if (
+        Number.isNaN(stockNumber) ||
+        !Number.isInteger(stockNumber) ||
+        stockNumber < 0
+      ) {
+        rowErrors.push("Stock must be a whole number 0 or greater.");
+      }
+
+      if (cleaned.discount_percent !== undefined) {
+        const percentNumber = Number(cleaned.discount_percent);
+        if (Number.isNaN(percentNumber) || percentNumber < 0 || percentNumber > 100) {
+          rowErrors.push("Discount percent must be between 0 and 100.");
+        }
+      }
+
+      if (cleaned.image_url) {
+        try {
+          new URL(cleaned.image_url);
+        } catch (error) {
+          rowErrors.push("Image URL is invalid.");
+        }
+      }
+
+      if (cleaned.discount_starts_at && cleaned.discount_ends_at) {
+        if (cleaned.discount_ends_at < cleaned.discount_starts_at) {
+          rowErrors.push("Discount end must be after start.");
+        }
+      }
+
+      const normalizedRow = {
+        ...cleaned,
+        category_id: categoryId,
+      };
+
+      cleanedRows.push(normalizedRow);
+
+      if (rowErrors.length) {
+        errors[index] = rowErrors;
+      }
+    });
+
+    return { errors, cleanedRows };
+  };
+
+  const handleBulkFileImport = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      let categoryList = categories;
+      if (!categoryList.length) {
+        categoryList = await fetchCategories();
+      }
+
+      const fileName = file.name.toLowerCase();
+      let workbook;
+
+      if (fileName.endsWith(".csv")) {
+        const text = await file.text();
+        workbook = XLSX.read(text, { type: "string", cellDates: true });
+      } else {
+        const data = await file.arrayBuffer();
+        workbook = XLSX.read(data, { type: "array", cellDates: true });
+      }
+
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        alert("No sheet found in the file.");
+        return;
+      }
+
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+        defval: "",
+      });
+
+      if (!rows.length) {
+        alert("No rows found in the file.");
+        return;
+      }
+
+      const mappedRows = rows
+        .map((row) => mapBulkRow(row, categoryList))
+        .filter((row) =>
+          Object.values(row).some((value) => String(value || "").trim() !== "")
+        );
+
+      if (!mappedRows.length) {
+        alert("No usable rows found in the file.");
+        return;
+      }
+
+      setBulkProducts((prev) => {
+        const prevHasValues = prev.some((row) =>
+          Object.values(row).some((value) => String(value || "").trim() !== "")
+        );
+        const nextRows = prevHasValues ? [...prev, ...mappedRows] : mappedRows;
+        const { errors } = validateBulkRows(nextRows, categoryList);
+        setBulkRowErrors(errors);
+        if (Object.keys(errors).length) {
+          alert("Some rows need fixes. Review highlighted rows before saving.");
+        }
+        return nextRows;
+      });
+    } catch (error) {
+      console.error("Error importing file:", error);
+      alert("Failed to import the file. Please check the format.");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const handleBulkRowChange = (index, field, value) => {
+    setBulkProducts((prev) =>
+      prev.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, [field]: value } : row
+      )
+    );
+    setBulkRowErrors((prev) => {
+      if (!prev[index]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+  };
+
+  const handleAddBulkRow = () => {
+    setBulkProducts((prev) => [...prev, createEmptyBulkProduct()]);
+  };
+
+  const handleRemoveBulkRow = (index) => {
+    setBulkProducts((prev) =>
+      prev.length > 1 ? prev.filter((_, rowIndex) => rowIndex !== index) : prev
+    );
+    setBulkRowErrors({});
+  };
+
+  const handleBulkSubmit = async () => {
+    const { errors, cleanedRows } = validateBulkRows(bulkProducts);
+    setBulkRowErrors(errors);
+    if (Object.keys(errors).length) {
+      alert("Fix validation errors before saving.");
+      return;
+    }
+
+    const rowsWithValues = cleanedRows.filter((row) =>
+      Object.values(row).some((value) => String(value || "").trim() !== "")
+    );
+
+    if (rowsWithValues.length === 0) {
+      alert("Add at least one product row before submitting.");
+      return;
+    }
+
+    setBulkSubmitting(true);
+    try {
+      await api.post('/admin/products/bulk', { products: rowsWithValues });
+      alert("Products added successfully!");
+      setShowBulkAdd(false);
+      resetBulkProducts();
+      fetchProducts({
+        page: productsPagination.currentPage,
+        perPage: productsPagination.perPage,
+      });
+      fetchDashboardData();
+    } catch (error) {
+      console.error("Error adding products in bulk:", error);
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.errors ||
+        "Failed to add products.";
+      alert(
+        typeof message === "string"
+          ? message
+          : "Validation failed. Check the row values."
+      );
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
   const closeModals = () => {
     setShowAddProduct(false);
     resetForm();
+  };
+
+  const closeBulkModal = () => {
+    setShowBulkAdd(false);
+    resetBulkProducts();
   };
 
   // Show loading spinner while checking admin access or loading data
@@ -704,21 +1087,6 @@ export default function AdminDashboard() {
             </div>
 
             <div className="flex items-center gap-4">
-              <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <svg
-                  className="w-6 h-6 text-gray-700"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
               <button
                 onClick={logout}
                 className="px-4 py-2 text-gray-700 hover:text-green-600 font-medium transition-colors"
@@ -783,7 +1151,7 @@ export default function AdminDashboard() {
                     strokeLinejoin="round"
                   />
                 </svg>
-                {item.label}
+                <span className="flex-1 text-left">{item.label}</span>
               </button>
             ))}
           </nav>
@@ -949,25 +1317,51 @@ export default function AdminDashboard() {
                 <h2 className="text-3xl font-bold text-gray-900">
                   Products Management
                 </h2>
-                <button
-                  onClick={() => setShowAddProduct(true)}
-                  className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => setShowAddProduct(true)}
+                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
                   >
-                    <path
-                      d="M12 4v16m8-8H4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Add Product
-                </button>
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path
+                        d="M12 4v16m8-8H4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Add Product
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (categories.length === 0) {
+                        fetchCategories();
+                      }
+                      setShowBulkAdd(true);
+                    }}
+                    className="px-6 py-3 border border-emerald-200 text-emerald-700 rounded-lg font-semibold hover:bg-emerald-50 transition-all flex items-center gap-2"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path
+                        d="M4 6h16M4 12h16M4 18h16"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    Bulk Add
+                  </button>
+                </div>
               </div>
 
               {/* Products Table */}
@@ -1279,6 +1673,18 @@ export default function AdminDashboard() {
                           >
                             {order.status}
                           </span>
+                          {order.status === "Cancelled" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteOrder(order.id, order.orderId)
+                              }
+                              disabled={Boolean(deletingOrders[order.id])}
+                              className="px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {deletingOrders[order.id] ? "Deleting..." : "Delete"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1369,6 +1775,9 @@ export default function AdminDashboard() {
                       <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Update Status
                       </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -1380,51 +1789,67 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 text-sm font-extrabold text-slate-900">
                           {order.orderId}
                         </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {order.customer}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {order.customerEmail}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {order.date}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-extrabold text-emerald-800">
+                            {order.total}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold shadow-sm ring-2 ${
+                                order.status === "Delivered"
+                                  ? "bg-emerald-200 text-emerald-900 ring-emerald-300"
+                                  : order.status === "Shipped"
+                                  ? "bg-sky-200 text-sky-900 ring-sky-300"
+                                  : order.status === "Processing"
+                                  ? "bg-amber-200 text-amber-900 ring-amber-300"
+                                  : order.status === "Pending"
+                                  ? "bg-slate-200 text-slate-900 ring-slate-300"
+                                  : "bg-rose-200 text-rose-900 ring-rose-300"
+                              }`}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <select
+                              value={order.status}
+                              onChange={(e) =>
+                                handleUpdateOrderStatus(order.id, e.target.value)
+                              }
+                              className="px-4 text-black py-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none text-sm font-medium bg-emerald-50/40"
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Processing">Processing</option>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                              <option value="Cancelled">Cancelled</option>
+                            </select>
+                          </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {order.customer}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {order.customerEmail}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {order.date}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-extrabold text-emerald-800">
-                          {order.total}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold shadow-sm ring-2 ${
-                              order.status === "Delivered"
-                                ? "bg-emerald-200 text-emerald-900 ring-emerald-300"
-                                : order.status === "Shipped"
-                                ? "bg-sky-200 text-sky-900 ring-sky-300"
-                                : order.status === "Processing"
-                                ? "bg-amber-200 text-amber-900 ring-amber-300"
-                                : order.status === "Pending"
-                                ? "bg-slate-200 text-slate-900 ring-slate-300"
-                                : "bg-rose-200 text-rose-900 ring-rose-300"
-                            }`}
-                          >
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={order.status}
-                            onChange={(e) =>
-                              handleUpdateOrderStatus(order.id, e.target.value)
-                            }
-                            className="px-4 text-black py-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none text-sm font-medium bg-emerald-50/40"
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Processing">Processing</option>
-                            <option value="Shipped">Shipped</option>
-                            <option value="Delivered">Delivered</option>
-                            <option value="Cancelled">Cancelled</option>
-                          </select>
+                          {order.status === "Cancelled" ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteOrder(order.id, order.orderId)
+                              }
+                              disabled={Boolean(deletingOrders[order.id])}
+                              className="px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {deletingOrders[order.id] ? "Deleting..." : "Delete"}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1563,6 +1988,366 @@ export default function AdminDashboard() {
           )}
         </main>
       </div>
+
+      {/* Bulk Add Products Modal */}
+      {showBulkAdd && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Bulk Add Products
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Add multiple products in a spreadsheet-style table. Image upload is not supported here; use Image URL.
+                </p>
+              </div>
+              <button
+                onClick={closeBulkModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={handleAddBulkRow}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
+                >
+                  Add Row
+                </button>
+                <button
+                  onClick={() => bulkFileInputRef.current?.click()}
+                  className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Import CSV/XLSX
+                </button>
+                <input
+                  ref={bulkFileInputRef}
+                  type="file"
+                  accept=".csv,.xls,.xlsx"
+                  onChange={handleBulkFileImport}
+                  className="hidden"
+                />
+                <span className="text-xs text-gray-500">
+                  Required: Name, Category, Price, Stock.
+                </span>
+                <span className="text-xs text-amber-600">
+                  Imports are local/admin-only. Avoid untrusted files.
+                </span>
+                {Object.keys(bulkRowErrors).length > 0 && (
+                  <span className="text-xs text-rose-600">
+                    {Object.keys(bulkRowErrors).length} row(s) need fixes.
+                  </span>
+                )}
+              </div>
+
+              <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                <table className="min-w-[1800px] w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold">Name *</th>
+                      <th className="px-4 py-3 text-left font-semibold">Category *</th>
+                      <th className="px-4 py-3 text-left font-semibold">Price *</th>
+                      <th className="px-4 py-3 text-left font-semibold">Stock *</th>
+                      <th className="px-4 py-3 text-left font-semibold">SKU</th>
+                      <th className="px-4 py-3 text-left font-semibold">Color</th>
+                      <th className="px-4 py-3 text-left font-semibold">Material</th>
+                      <th className="px-4 py-3 text-left font-semibold">Brand</th>
+                      <th className="px-4 py-3 text-left font-semibold">Size</th>
+                      <th className="px-4 py-3 text-left font-semibold">Weight</th>
+                      <th className="px-4 py-3 text-left font-semibold">Dimensions</th>
+                      <th className="px-4 py-3 text-left font-semibold">Discount %</th>
+                      <th className="px-4 py-3 text-left font-semibold">Discount Start</th>
+                      <th className="px-4 py-3 text-left font-semibold">Discount End</th>
+                      <th className="px-4 py-3 text-left font-semibold">Image URL</th>
+                      <th className="px-4 py-3 text-left font-semibold">Description</th>
+                      <th className="px-4 py-3 text-left font-semibold">Highlight 1</th>
+                      <th className="px-4 py-3 text-left font-semibold">Highlight 2</th>
+                      <th className="px-4 py-3 text-left font-semibold">Highlight 3</th>
+                      <th className="px-4 py-3 text-left font-semibold">Highlight 4</th>
+                      <th className="px-4 py-3 text-left font-semibold">Errors</th>
+                      <th className="px-4 py-3 text-left font-semibold">Remove</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {bulkProducts.map((row, index) => (
+                      <tr
+                        key={index}
+                        className={bulkRowErrors[index]?.length ? "bg-rose-50" : "bg-white"}
+                      >
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.name}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "name", e.target.value)
+                            }
+                            className="w-48 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Product name"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <select
+                            value={row.category_id}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "category_id", e.target.value)
+                            }
+                            className="w-44 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          >
+                            <option value="">Select</option>
+                            {categories.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={row.price}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "price", e.target.value)
+                            }
+                            className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="0.00"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.stock_quantity}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "stock_quantity", e.target.value)
+                            }
+                            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.sku}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "sku", e.target.value)
+                            }
+                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="SKU"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.color}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "color", e.target.value)
+                            }
+                            className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Color"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.material}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "material", e.target.value)
+                            }
+                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Material"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.brand}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "brand", e.target.value)
+                            }
+                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Brand"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.size}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "size", e.target.value)
+                            }
+                            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Size"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.weight}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "weight", e.target.value)
+                            }
+                            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Weight"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.dimensions}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "dimensions", e.target.value)
+                            }
+                            className="w-36 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Dimensions"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={row.discount_percent}
+                            onChange={(e) =>
+                              handleBulkRowChange(
+                                index,
+                                "discount_percent",
+                                e.target.value
+                              )
+                            }
+                            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="date"
+                            value={row.discount_starts_at}
+                            onChange={(e) =>
+                              handleBulkRowChange(
+                                index,
+                                "discount_starts_at",
+                                e.target.value
+                              )
+                            }
+                            className="w-36 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="date"
+                            value={row.discount_ends_at}
+                            onChange={(e) =>
+                              handleBulkRowChange(
+                                index,
+                                "discount_ends_at",
+                                e.target.value
+                              )
+                            }
+                            className="w-36 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.image_url}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "image_url", e.target.value)
+                            }
+                            className="w-56 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="https://..."
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.description}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "description", e.target.value)
+                            }
+                            className="w-64 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Description"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.highlight_1}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "highlight_1", e.target.value)
+                            }
+                            className="w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Highlight 1"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.highlight_2}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "highlight_2", e.target.value)
+                            }
+                            className="w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Highlight 2"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.highlight_3}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "highlight_3", e.target.value)
+                            }
+                            className="w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Highlight 3"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.highlight_4}
+                            onChange={(e) =>
+                              handleBulkRowChange(index, "highlight_4", e.target.value)
+                            }
+                            className="w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            placeholder="Highlight 4"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-xs text-rose-600">
+                          {bulkRowErrors[index]?.length
+                            ? bulkRowErrors[index].length > 1
+                              ? `${bulkRowErrors[index][0]} (+${bulkRowErrors[index].length - 1})`
+                              : bulkRowErrors[index][0]
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-2">
+                          <button
+                            onClick={() => handleRemoveBulkRow(index)}
+                            className="px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100"
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="p-6 border-t flex flex-wrap gap-3 justify-end">
+              <button
+                onClick={closeBulkModal}
+                disabled={bulkSubmitting}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkSubmit}
+                disabled={bulkSubmitting}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {bulkSubmitting ? "Saving..." : "Save All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Product Modal */}
       {showAddProduct && (

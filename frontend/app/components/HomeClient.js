@@ -417,18 +417,21 @@ export default function HomeClient() {
                               `/products?search=${encodeURIComponent(product.name)}`
                             );
                           }}
-                          className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="w-full flex items-center gap-3 text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                         >
-                          <svg
-                            className="w-4 h-4 text-gray-400"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <circle cx="11" cy="11" r="8" />
-                            <path d="m21 21-4.35-4.35" />
-                          </svg>
+                          <img
+                            src={
+                              product.image ||
+                              product.image_url ||
+                              "/images/default-product.svg"
+                            }
+                            alt={product.name}
+                            className="w-8 h-8 rounded-md object-cover border border-gray-200 bg-gray-100"
+                            onError={(event) => {
+                              event.currentTarget.src =
+                                "/images/default-product.svg";
+                            }}
+                          />
                           <span className="font-semibold text-gray-900">
                             {product.name}
                           </span>

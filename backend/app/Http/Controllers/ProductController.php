@@ -440,7 +440,7 @@ class ProductController extends Controller
             }
 
             $safeQuery = addcslashes($query, '%_\\');
-            $suggestions = Product::select('id', 'name')
+            $suggestions = Product::select('id', 'name', 'image_url')
                 ->active()
                 ->where('name', 'like', $safeQuery . '%')
                 ->orderBy('name')

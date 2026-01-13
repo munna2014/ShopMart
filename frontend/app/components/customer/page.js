@@ -1,13 +1,110 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import api from "@/lib/axios";
 import CustomerView from "./CustomerView";
 
 export default function Page() {
   const { user, loading, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
+  const [customerStats, setCustomerStats] = useState({
+    totalOrders: 0,
+    totalSpent: "$0.00",
+    loyaltyPoints: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(false); // Start with false for instant display
+
+  // Fetch customer statistics immediately
+  useEffect(() => {
+    // Load from cache immediately on mount
+    if (user?.id) {
+      const cacheKey = `customer_stats_${user.id}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (cached) {
+        try {
+          const parsedCache = JSON.parse(cached);
+          setCustomerStats({
+            totalOrders: parsedCache.total_orders || 0,
+            totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
+            loyaltyPoints: parsedCache.loyalty_points || 0,
+          });
+          console.log("Customer stats loaded immediately from cache");
+        } catch (e) {
+          console.error("Failed to parse cached customer stats:", e);
+        }
+      }
+    }
+
+    const fetchCustomerStats = async () => {
+      if (!isAuthenticated || !user) return;
+
+      try {
+        // Check cache first
+        const cacheKey = `customer_stats_${user.id}`;
+        const cached = localStorage.getItem(cacheKey);
+        
+        if (cached) {
+          try {
+            const parsedCache = JSON.parse(cached);
+            const cacheAge = Date.now() - new Date(parsedCache.cached_at).getTime();
+            
+            // Always use cache immediately for instant loading
+            setCustomerStats({
+              totalOrders: parsedCache.total_orders || 0,
+              totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
+              loyaltyPoints: parsedCache.loyalty_points || 0,
+            });
+            setStatsLoading(false);
+            
+            console.log("Customer stats loaded from cache:", {
+              totalOrders: parsedCache.total_orders || 0,
+              totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
+              loyaltyPoints: parsedCache.loyalty_points || 0,
+              cacheAge: Math.round(cacheAge / 1000) + "s"
+            });
+            
+            // Only fetch fresh data if cache is older than 5 minutes
+            if (cacheAge < 300000) {
+              return;
+            }
+          } catch (e) {
+            // Invalid cache, continue to fetch
+          }
+        }
+
+        // Fetch fresh data
+        const response = await api.get("/orders/summary");
+        const stats = {
+          totalOrders: response.data.total_orders || 0,
+          totalSpent: `$${Number(response.data.total_spent || 0).toFixed(2)}`,
+          loyaltyPoints: 0, // TODO: Add loyalty points to API
+        };
+
+        setCustomerStats(stats);
+
+        // Update cache
+        localStorage.setItem(cacheKey, JSON.stringify({
+          total_orders: response.data.total_orders || 0,
+          total_spent: response.data.total_spent || 0,
+          loyalty_points: 0,
+          cached_at: new Date().toISOString(),
+        }));
+
+        console.log("Customer stats loaded fresh from API:", stats);
+
+      } catch (error) {
+        console.error("Error fetching customer stats:", error);
+        // Keep default values on error
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchCustomerStats();
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     console.log("Customer page useEffect:", { 
@@ -65,9 +162,10 @@ export default function Page() {
       user.full_name || user.name || "Customer"
     )}&size=200&background=059669&color=fff`,
     joinDate: joinDate,
-    totalOrders: 0,
-    totalSpent: "$0.00",
-    loyaltyPoints: 0,
+    totalOrders: customerStats.totalOrders,
+    totalSpent: customerStats.totalSpent,
+    loyaltyPoints: customerStats.loyaltyPoints,
+    statsLoading: statsLoading,
   };
 
   return <CustomerView customer={customerData} />;

@@ -7,12 +7,12 @@ import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import PasswordInput from "@/components/PasswordInput";
 import { getPricing } from "@/lib/pricing";
+import NotificationDropdown from "@/components/NotificationDropdown";
 
 const VALID_TABS = [
   "profile",
   "orders",
   "notifications",
-  "shop",
   "addresses",
   "settings",
 ];
@@ -28,6 +28,7 @@ export default function CustomerView({ customer: initialCustomer }) {
     VALID_TABS.includes(tabParam) ? tabParam : "profile"
   );
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [profilePicture, setProfilePicture] = useState(null);
   const [cart, setCart] = useState([]);
   const [products, setProducts] = useState([]);
@@ -301,11 +302,6 @@ export default function CustomerView({ customer: initialCustomer }) {
       icon: "M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0",
     },
     {
-      id: "shop",
-      label: "Shop",
-      icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 3 3 0 014 0z",
-    },
-    {
       id: "addresses",
       label: "Addresses",
       icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
@@ -400,67 +396,14 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   }, [activeTab]);
 
-  // Fetch products when Shop tab is active or filters change
+  // Fetch categories when needed
   useEffect(() => {
-    if (activeTab !== "shop") {
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      fetchProducts();
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, [activeTab, productSearch, selectedCategory]);
-
-  // Fetch categories when Shop tab is active
-  useEffect(() => {
-    if (activeTab === "shop" && categories.length === 0) {
+    if (categories.length === 0) {
       fetchCategories();
     }
-  }, [activeTab]);
+  }, []);
 
-  useEffect(() => {
-    if (activeTab !== "shop") {
-      return;
-    }
-    const trimmed = productSearch.trim();
-    if (trimmed.length < 1) {
-      setProductSuggestions([]);
-      setProductSuggestionsLoading(false);
-      return;
-    }
-
-    let active = true;
-    const timeout = setTimeout(async () => {
-      try {
-        setProductSuggestionsLoading(true);
-        const response = await api.get('/products/suggestions', {
-          params: {
-            q: trimmed,
-            limit: 6,
-          },
-        });
-        if (!active) return;
-        setProductSuggestions(response.data.suggestions || []);
-      } catch (error) {
-        if (active) {
-          setProductSuggestions([]);
-        }
-      } finally {
-        if (active) {
-          setProductSuggestionsLoading(false);
-        }
-      }
-    }, 200);
-
-    return () => {
-      active = false;
-      clearTimeout(timeout);
-    };
-  }, [activeTab, productSearch]);
-
-  // Fetch orders when needed (skip initial load for notifications to keep it snappy)
+  // Fetch orders when needed
   useEffect(() => {
     if (activeTab === "notifications") {
       return;
@@ -497,13 +440,6 @@ export default function CustomerView({ customer: initialCustomer }) {
     fetchOrdersSummary();
   }, [ordersSummaryCacheKey]);
 
-  // Load cart only when the shop tab is active
-  useEffect(() => {
-    if (activeTab === "shop") {
-      fetchCart();
-    }
-  }, [activeTab]);
-
   const fetchAddresses = async () => {
     try {
       setAddressesLoading(true);
@@ -519,11 +455,31 @@ export default function CustomerView({ customer: initialCustomer }) {
 
   const fetchProducts = async () => {
     try {
+      const trimmedSearch = productSearch.trim();
+      const cacheKey = `products_cache_${trimmedSearch}_${selectedCategory || 'all'}`;
+      
+      // Check sessionStorage cache first for instant loading
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const { data, timestamp } = JSON.parse(cached);
+            // Use cache if less than 2 minutes old
+            if (Date.now() - timestamp < 120000) {
+              setProducts(data);
+              setProductsLoading(false);
+              return;
+            }
+          } catch (e) {
+            // Invalid cache, continue to fetch
+          }
+        }
+      }
+
       setProductsLoading(true);
       const params = {
         limit: 50,
       };
-      const trimmedSearch = productSearch.trim();
       if (trimmedSearch) {
         params.search = trimmedSearch;
       }
@@ -532,7 +488,16 @@ export default function CustomerView({ customer: initialCustomer }) {
       }
 
       const response = await api.get('/customer/products', { params });
-      setProducts(response.data.products || []);
+      const productsData = response.data.products || [];
+      setProducts(productsData);
+      
+      // Cache the results
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          data: productsData,
+          timestamp: Date.now()
+        }));
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);
@@ -1129,29 +1094,46 @@ export default function CustomerView({ customer: initialCustomer }) {
 
             {/* Right Side - Menu */}
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setActiveTab("notifications")}
-                className="relative p-2 text-green-600 hover:text-green-700 transition-colors"
-                aria-label="Notifications"
-              >
-                <svg
-                  className="w-6 h-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                {unreadNotifications > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
-                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                  </span>
-                )}
-              </button>
               <div className="relative">
                 <button
-                  onClick={() => setTabMenuOpen((prev) => !prev)}
+                  onClick={() => {
+                    setNotificationDropdownOpen((prev) => !prev);
+                    setTabMenuOpen(false);
+                  }}
+                  className="relative p-2 text-green-600 hover:text-green-700 transition-colors"
+                  aria-label="Notifications"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {unreadNotifications > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                    </span>
+                  )}
+                </button>
+                <NotificationDropdown
+                  notifications={notifications}
+                  unreadCount={unreadNotifications}
+                  onNotificationClick={handleNotificationClick}
+                  onSeeAll={() => setActiveTab("notifications")}
+                  isOpen={notificationDropdownOpen}
+                  onToggle={() => setNotificationDropdownOpen((prev) => !prev)}
+                  onClose={() => setNotificationDropdownOpen(false)}
+                />
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setTabMenuOpen((prev) => !prev);
+                    setNotificationDropdownOpen(false);
+                  }}
                   className="p-2 text-green-600 hover:text-green-700 transition-colors"
                   aria-label="Open menu"
                   aria-expanded={tabMenuOpen}
@@ -1287,19 +1269,31 @@ export default function CustomerView({ customer: initialCustomer }) {
                 <div className="flex flex-wrap gap-4 justify-center md:justify-start">
                   <div className="bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl shadow-lg">
                     <div className="text-xl sm:text-2xl font-bold">
-                      {customer.totalOrders}
+                      {customer.statsLoading ? (
+                        <div className="animate-pulse bg-white/30 h-8 w-8 rounded"></div>
+                      ) : (
+                        customer.totalOrders
+                      )}
                     </div>
                     <div className="text-xs uppercase tracking-wide text-white/80">Orders</div>
                   </div>
                   <div className="bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl shadow-lg">
                     <div className="text-xl sm:text-2xl font-bold">
-                      {customer.totalSpent}
+                      {customer.statsLoading ? (
+                        <div className="animate-pulse bg-white/30 h-8 w-20 rounded"></div>
+                      ) : (
+                        customer.totalSpent
+                      )}
                     </div>
                     <div className="text-xs uppercase tracking-wide text-white/80">Total Spent</div>
                   </div>
                   <div className="bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl shadow-lg">
                     <div className="text-xl sm:text-2xl font-bold">
-                      {customer.loyaltyPoints}
+                      {customer.statsLoading ? (
+                        <div className="animate-pulse bg-white/30 h-8 w-6 rounded"></div>
+                      ) : (
+                        customer.loyaltyPoints
+                      )}
                     </div>
                     <div className="text-xs uppercase tracking-wide text-white/80">Points</div>
                   </div>
@@ -1418,7 +1412,11 @@ export default function CustomerView({ customer: initialCustomer }) {
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
                   <h3 className="text-xl font-bold mb-4">Loyalty Rewards</h3>
                   <div className="text-4xl font-bold mb-2">
-                    {customer.loyaltyPoints}
+                    {customer.statsLoading ? (
+                      <div className="animate-pulse bg-white/30 h-12 w-12 rounded"></div>
+                    ) : (
+                      customer.loyaltyPoints
+                    )}
                   </div>
                   <p className="text-white/80 mb-4">Points Available</p>
                   <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 mb-4">
@@ -1881,321 +1879,6 @@ export default function CustomerView({ customer: initialCustomer }) {
                   })
                 )}
               </div>
-            </div>
-          )}
-
-          {/* Shop Tab */}
-          {activeTab === "shop" && (
-            <div>
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    Shop Products
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Search and filter by category.
-                  </p>
-                </div>
-                <div className="relative">
-                  <Link
-                    href="/components/customer/cart"
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path
-                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    Cart ({cartItemCount})
-                  </Link>
-                </div>
-              </div>
-
-              <div className="flex flex-col lg:flex-row gap-4 mb-6">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Search products
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={productSearch}
-                      onChange={(e) => setProductSearch(e.target.value)}
-                      onFocus={() => setShowProductSuggestions(true)}
-                      onBlur={() => {
-                        setTimeout(() => setShowProductSuggestions(false), 150);
-                      }}
-                      placeholder="Search by name, category, or description..."
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
-                    />
-                    {showProductSuggestions &&
-                      trimmedProductSearch.length >= 1 && (
-                        <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden divide-y divide-gray-200">
-                          {productSuggestionsLoading ? (
-                            <div className="px-4 py-2.5 text-xs text-gray-500">
-                              Searching...
-                            </div>
-                          ) : productSuggestions.length > 0 ? (
-                            productSuggestions.map((product) => (
-                              <button
-                                key={product.id}
-                                type="button"
-                                onClick={() => {
-                                  setProductSearch(product.name);
-                                  setShowProductSuggestions(false);
-                                }}
-                                className="w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                              >
-                                <svg
-                                  className="w-4 h-4 text-gray-400"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                >
-                                  <circle cx="11" cy="11" r="8" />
-                                  <path d="m21 21-4.35-4.35" />
-                                </svg>
-                                <span className="font-semibold text-gray-900">
-                                  {product.name}
-                                </span>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="px-4 py-2.5 text-xs text-gray-500">
-                              No products found.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                  </div>
-                </div>
-                <div className="w-full lg:w-72">
-                  <label className="block text-sm font-medium text-gray-600 mb-2">
-                    Category
-                  </label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
-                  >
-                    <option value="">All Categories</option>
-                    {categoriesLoading ? (
-                      <option value="" disabled>
-                        Loading categories...
-                      </option>
-                    ) : (
-                      categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              {productsLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                  {Array.from({ length: 8 }).map((_, index) => (
-                    <div key={index} className="bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden animate-pulse">
-                      <div className="w-full h-40 bg-gray-200"></div>
-                      <div className="p-4">
-                        <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                        <div className="h-6 bg-gray-200 rounded mb-2"></div>
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                        <div className="flex items-center justify-between">
-                          <div className="h-8 bg-gray-200 rounded w-20"></div>
-                          <div className="h-10 bg-gray-200 rounded w-24"></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : products.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-gray-500">
-                    <svg
-                      className="w-16 h-16 mx-auto mb-4 text-gray-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path
-                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <h3 className="text-xl font-medium text-gray-900 mb-2">
-                      {productSearch.trim() || selectedCategory
-                        ? "No matching products"
-                        : "No products available"}
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      {productSearch.trim() || selectedCategory
-                        ? "Try a different search or category."
-                        : "Products will appear here once they are added to the store"}
-                    </p>
-                    <button
-                      onClick={fetchProducts}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Refresh Products
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                  {products.map((product) => {
-                    const cartItem = cart.find((item) => item.id === product.id);
-                    const cartQuantity = cartItem?.quantity || 0;
-                    const availableStock = Math.max(
-                      0,
-                      (product.stock || 0) - cartQuantity
-                    );
-                    const pricing = getPricing(product);
-                    const showDiscount =
-                      pricing.discountActive &&
-                      pricing.basePrice > pricing.discountedPrice;
-                    const ratingValue = Math.max(
-                      0,
-                      Math.min(5, Math.round(Number(product.rating || 0)))
-                    );
-                    const reviewCount = Number(product.reviews || 0);
-                    return (
-                      <div
-                        key={product.id}
-                        className="bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden hover:shadow-green-200/50 transition-all group"
-                      >
-                        <Link
-                          href={`/customer_product_details/${product.id}`}
-                          className="relative block"
-                        >
-                          <img
-                            src={product.image || product.image_url || '/images/default-product.svg'}
-                            alt={product.name}
-                            className="w-full h-40 object-cover"
-                            onError={(e) => {
-                              e.target.src = '/images/default-product.svg';
-                            }}
-                          />
-                          {product.badge && (
-                            <div className={`absolute top-3 left-3 ${product.badgeColor || 'bg-red-500'} text-white px-2 py-1 rounded-full text-xs font-bold`}>
-                              {product.badge}
-                            </div>
-                          )}
-                        </Link>
-                        <div className="p-4">
-                          <div className="text-sm text-green-600 font-medium mb-2">
-                            {product.category}
-                          </div>
-                          <Link
-                            href={`/customer_product_details/${product.id}`}
-                            className="text-lg font-bold text-gray-900 mb-2 hover:text-green-700 transition-colors block"
-                          >
-                            {product.name}
-                          </Link>
-                          {product.description && (
-                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                              {product.description}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-2 mb-4">
-                            <div className="flex text-yellow-400">
-                              {"\u2605".repeat(ratingValue)}
-                              {"\u2606".repeat(5 - ratingValue)}
-                            </div>
-                            <span className="text-sm text-gray-400 ml-1">
-                              ({reviewCount})
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="text-2xl font-bold text-gray-900">
-                              ${pricing.discountedPrice.toFixed(2)}
-                            </div>
-                            {showDiscount ? (
-                              <span className="text-xs text-gray-500 line-through">
-                                ${pricing.basePrice.toFixed(2)}
-                              </span>
-                            ) : null}
-                            {showDiscount ? (
-                              <span className="text-xs font-semibold text-rose-600">
-                                -{pricing.discountPercent}%
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="text-sm text-gray-600">
-                              {availableStock > 0
-                                ? `${availableStock} in stock`
-                                : 'Out of stock'}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            {cartItem ? (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() =>
-                                    updateQuantity(
-                                      product.id,
-                                      cartItem.quantity - 1
-                                    )
-                                  }
-                                  className="w-8 h-8 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200"
-                                >
-                                  -
-                                </button>
-                                <span className="font-bold text-gray-900 px-3">
-                                  {cartItem.quantity}
-                                </span>
-                                <button
-                                  onClick={() =>
-                                    updateQuantity(
-                                      product.id,
-                                      cartItem.quantity + 1
-                                    )
-                                  }
-                                  disabled={availableStock === 0}
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                                    availableStock === 0
-                                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                      : 'bg-green-600 text-white hover:bg-green-500'
-                                  }`}
-                                >
-                                  +
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => addToCart(product)}
-                                disabled={availableStock === 0}
-                                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                                  availableStock > 0
-                                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg'
-                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                }`}
-                              >
-                                {availableStock > 0 ? 'Add to Cart' : 'Unavailable'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
             </div>
           )}
 

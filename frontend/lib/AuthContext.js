@@ -16,6 +16,39 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, []);
 
+  // Preload customer statistics for faster loading
+  const preloadCustomerStats = async (userId) => {
+    try {
+      const cacheKey = `customer_stats_${userId}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      // Check if we have recent cache (less than 5 minutes)
+      if (cached) {
+        try {
+          const parsedCache = JSON.parse(cached);
+          const cacheAge = Date.now() - new Date(parsedCache.cached_at).getTime();
+          if (cacheAge < 300000) {
+            // Cache is fresh, no need to preload
+            return;
+          }
+        } catch (e) {
+          // Invalid cache, continue to preload
+        }
+      }
+
+      // Fetch fresh statistics in background
+      const response = await api.get("/orders/summary");
+      localStorage.setItem(cacheKey, JSON.stringify({
+        total_orders: response.data.total_orders || 0,
+        total_spent: response.data.total_spent || 0,
+        loyalty_points: 0,
+        cached_at: new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.error("Failed to preload customer stats:", error);
+    }
+  };
+
   const checkAuth = async () => {
     const token = localStorage.getItem("token");
     
@@ -32,6 +65,10 @@ export function AuthProvider({ children }) {
       console.log("User roles:", response.data.roles);
       setUser(response.data);
       setIsAuthenticated(true);
+      
+      // Preload customer statistics for faster loading
+      preloadCustomerStats(response.data.id);
+      
       try {
         await mergeGuestCartToServer(api);
       } catch (error) {
@@ -55,6 +92,10 @@ export function AuthProvider({ children }) {
       localStorage.setItem("token", token);
       setUser(user);
       setIsAuthenticated(true);
+      
+      // Preload customer statistics for faster loading
+      preloadCustomerStats(user.id);
+      
       try {
         await mergeGuestCartToServer(api);
       } catch (error) {

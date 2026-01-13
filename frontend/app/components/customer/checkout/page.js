@@ -422,7 +422,7 @@ export default function CheckoutPage() {
               </span>
             </Link>
             <Link
-              href="/components/customer"
+              href="/products"
               className="text-sm font-semibold text-green-700 hover:text-green-800 transition-colors"
             >
               Back to Shop

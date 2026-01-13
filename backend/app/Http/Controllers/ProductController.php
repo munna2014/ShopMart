@@ -7,6 +7,7 @@ use App\Services\ProductService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
@@ -339,40 +340,43 @@ class ProductController extends Controller
             $search = trim((string) $request->get('search', ''));
             $categoryId = $request->get('category_id');
 
-            $query = Product::select(
-                    'id',
-                    'name',
-                    'description',
-                    'price',
-                    'image_url',
-                    'stock_quantity',
-                    'category_id',
-                    'discount_percent',
-                    'discount_starts_at',
-                    'discount_ends_at',
-                    'created_at'
-                )
-                ->withAvg('reviews', 'rating')
-                ->withCount('reviews')
-                ->with(['category' => function ($categoryQuery) {
-                    $categoryQuery->select('id', 'name');
-                }])
-                ->active()
-                ->orderBy('created_at', 'desc');
+            // Create cache key based on filters
+            $cacheKey = "customer_products_{$limit}_{$search}_{$categoryId}";
+            
+            // Cache for 60 seconds for fast repeated loads
+            $products = Cache::remember($cacheKey, 60, function () use ($limit, $search, $categoryId) {
+                $query = Product::select(
+                        'id',
+                        'name',
+                        'description',
+                        'price',
+                        'image_url',
+                        'stock_quantity',
+                        'category_id',
+                        'discount_percent',
+                        'discount_starts_at',
+                        'discount_ends_at'
+                    )
+                    ->withAvg('reviews', 'rating')
+                    ->withCount('reviews')
+                    ->with(['category:id,name'])
+                    ->where('is_active', true)
+                    ->orderBy('id', 'desc');
 
-            if ($search !== '') {
-                $query->search($search);
-            }
+                if ($search !== '') {
+                    $query->search($search);
+                }
 
-            if ($categoryId) {
-                $query->where('category_id', $categoryId);
-            }
+                if ($categoryId) {
+                    $query->where('category_id', $categoryId);
+                }
 
-            if ($limit > 0) {
-                $query->limit($limit);
-            }
+                if ($limit > 0) {
+                    $query->limit($limit);
+                }
 
-            $products = $query->get();
+                return $query->get();
+            });
 
             $formattedProducts = $products->map(function ($product) {
                 $basePrice = (float) $product->price;

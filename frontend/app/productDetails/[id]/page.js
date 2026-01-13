@@ -7,6 +7,8 @@ import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import { addGuestItem } from "@/lib/guestCart";
 import { getPricing } from "@/lib/pricing";
+import DiscountCountdown from "@/components/DiscountCountdown";
+import ProductImage from "@/components/ProductImage";
 
 export default function ProductDetailsPage() {
   const { id } = useParams();
@@ -78,12 +80,12 @@ export default function ProductDetailsPage() {
 
   const priceLabel = useMemo(() => {
     if (!product) return "$0.00";
-    return `$${pricing.discountedPrice.toFixed(2)}`;
+    return `${pricing.discountedPrice.toFixed(2)}`;
   }, [product, pricing]);
 
   const originalPriceLabel = useMemo(() => {
     if (!product) return "$0.00";
-    return `$${pricing.basePrice.toFixed(2)}`;
+    return `${pricing.basePrice.toFixed(2)}`;
   }, [product, pricing]);
 
   const stockCount = useMemo(() => {
@@ -234,419 +236,259 @@ export default function ProductDetailsPage() {
         key={`star-${value}-${index}`}
         className={index < value ? "text-yellow-500" : "text-gray-300"}
       >
-        *
+        ★
       </span>
     ));
 
-  const backLink = isAuthenticated ? "/components/customer?tab=shop" : "/products";
+  const backLink = "/products";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
-                <svg
-                  className="w-5 h-5 sm:w-6 sm:h-6 text-white"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    d="M6 2L3 6V20c0 1.1.9 2 2 2h14a2 2 0 002-2V6l-3-4H6zM3 6h18"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+    <div className="min-h-screen bg-gray-100">
+      {/* Compact Navbar */}
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4">
+          <div className="flex items-center justify-between h-12">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 2L3 6V20c0 1.1.9 2 2 2h14a2 2 0 002-2V6l-3-4H6zM3 6h18" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                ShopMart
-              </span>
+              <span className="text-base font-bold text-green-600">ShopMart</span>
             </Link>
-            <Link
-              href={backLink}
-              className="text-sm font-semibold text-green-700 hover:text-green-800 transition-colors"
-            >
-              Back to Products
+            <Link href={backLink} className="text-sm text-green-600 hover:text-green-700 font-medium">
+              ← Back
             </Link>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-12">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 pt-14 pb-6">
         {productLoading ? (
-          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8 animate-pulse">
-            <div className="h-10 bg-gray-200 rounded w-1/3 mb-6"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="aspect-square bg-gray-200 rounded-2xl"></div>
-              <div className="space-y-4">
-                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                <div className="h-12 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-12 bg-gray-200 rounded"></div>
+          <div className="bg-white rounded-lg p-4 animate-pulse">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-4 h-72 bg-gray-200 rounded-lg"></div>
+              <div className="lg:col-span-5 space-y-3">
+                <div className="h-5 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/3"></div>
               </div>
+              <div className="lg:col-span-3 h-40 bg-gray-200 rounded-lg"></div>
             </div>
           </div>
         ) : !product ? (
-          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Product not found
-            </h1>
-            <p className="text-gray-600 mb-6">
-              This product may no longer be available.
-            </p>
-            <Link
-              href={backLink}
-              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
-            >
+          <div className="bg-white rounded-lg p-6 text-center">
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Product not found</h1>
+            <p className="text-gray-600 mb-4 text-sm">This product may no longer be available.</p>
+            <Link href={backLink} className="inline-block px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">
               Back to Products
             </Link>
           </div>
         ) : (
-          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 sm:p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
-              <div className="relative">
-                <img
-                  src={product.image_url || product.image || "/images/default-product.svg"}
-                  alt={imageDescriptionText}
-                  className="w-full aspect-square object-cover rounded-2xl border border-gray-100"
-                  onError={(e) => {
-                    e.target.src = "/images/default-product.svg";
-                  }}
-                />
-                <div className="mt-6 border-t border-gray-200 pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                        Product details of {product.name}
-                      </h2>
-                      <ul className="list-disc pl-5 text-sm text-gray-700 space-y-2">
-                        <li><strong>Product Type:</strong> {product.category?.name || "Uncategorized"}</li>
-                        <li><strong>Color:</strong> {product.color || "Not specified"}</li>
-                        <li><strong>Main Material:</strong> {product.material || "Not specified"}</li>
-                        <li><strong>Brand:</strong> {product.brand || "Not specified"}</li>
-                        <li><strong>Size:</strong> {product.size || "Not specified"}</li>
-                        <li><strong>Weight:</strong> {product.weight || "Not specified"}</li>
-                        <li><strong>Dimensions:</strong> {product.dimensions || "Not specified"}</li>
-                        <li><strong>Availability:</strong> {stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Highlights
-                      </h3>
-                      <ul className="list-disc pl-5 text-sm text-gray-700 space-y-2">
-                        <li>{product.highlight_1 || "Quality build for everyday use"}</li>
-                        <li>{product.highlight_2 || "Comfortable, reliable, and durable"}</li>
-                        <li>{product.highlight_3 || "Designed to fit modern lifestyles"}</li>
-                        <li>{product.highlight_4 || "Popular choice in this category"}</li>
-                      </ul>
-                    </div>
+          <div className="space-y-3">
+            {/* Main Product Card */}
+            <div className="bg-white rounded-lg overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                {/* Image Section - Bigger */}
+                <div className="p-4 lg:border-r border-gray-100">
+                  <div className="relative overflow-hidden rounded-lg bg-gray-50 group cursor-zoom-in">
+                    <ProductImage
+                      src={product.image_url || product.image}
+                      alt={imageDescriptionText}
+                      className="w-full h-[350px] lg:h-[450px] object-contain transition-transform duration-300 group-hover:scale-150"
+                    />
                   </div>
-
-                <div className="mt-6 border-t border-gray-200 pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
-                    <div>
-                      <span className="font-semibold text-gray-900">Brand</span>
-                      <div>{product.brand || "No brand"}</div>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-900">SKU</span>
-                      <div>{product.sku || "Not specified"}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm text-green-600 font-semibold uppercase tracking-wide mb-2">
-                  {product.category?.name || "Uncategorized"}
-                </p>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
-                  {product.name}
-                </h1>
-                <div className="flex flex-wrap items-center gap-4 mb-6">
-                  <span className="text-2xl sm:text-3xl font-bold text-gray-900">
-                    {priceLabel}
-                  </span>
-                  {pricing.discountActive &&
-                  pricing.basePrice > pricing.discountedPrice ? (
-                    <span className="text-sm text-gray-500 line-through">
-                      {originalPriceLabel}
-                    </span>
-                  ) : null}
-                  {pricing.discountActive &&
-                  pricing.basePrice > pricing.discountedPrice ? (
-                    <span className="text-xs font-semibold text-rose-600">
-                      -{pricing.discountPercent}%
-                    </span>
-                  ) : null}
-                  <span className="text-sm text-gray-600">
-                    {stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                  <div className="rounded-xl border border-gray-200 p-4">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                      Color
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {(product.color || "Default").split(",").map((color) => (
-                        <span
-                          key={color.trim()}
-                          className="px-3 py-1 rounded-full border border-gray-200 text-xs font-semibold text-gray-700 bg-gray-50"
-                        >
-                          {color.trim()}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 p-4">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                      Size
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {(product.size || "Standard").split(",").map((size) => (
-                        <span
-                          key={size.trim()}
-                          className="px-3 py-1 rounded-full border border-gray-200 text-xs font-semibold text-gray-700 bg-gray-50"
-                        >
-                          {size.trim()}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 mb-6">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                    Delivery
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    Estimated delivery: Aug 12-14
-                  </p>
-                  <p className="text-sm text-gray-600">Shipping: $4.99</p>
-                </div>
-
-              </div>
-            </div>
-            <div className="mt-10 border-t border-gray-200 pt-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                Description
-              </h2>
-              <p className="text-gray-600 leading-relaxed">
-                {product.description || "No description available."}
-              </p>
-            </div>
-            <div className="mt-10 border-t border-gray-200 pt-6">
-              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Reviews
-                  </h2>
-                  <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
-                    <div className="flex">
-                      {renderStars(Math.round(reviewSummary.average || 0))}
-                    </div>
-                    <span>
-                      {reviewSummary.average.toFixed(1)} ({reviewSummary.count})
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {isAuthenticated ? (
-                <form
-                  onSubmit={handleReviewSubmit}
-                  className="bg-gray-50 border border-gray-200 rounded-2xl p-5 mb-6"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Rating
-                      </label>
-                      <select
-                        value={reviewForm.rating}
-                        onChange={(e) =>
-                          setReviewForm((prev) => ({
-                            ...prev,
-                            rating: Number(e.target.value),
-                          }))
-                        }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700"
-                      >
-                        {[5, 4, 3, 2, 1].map((value) => (
-                          <option key={value} value={value}>
-                            {value} Star{value > 1 ? "s" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Title (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={reviewForm.title}
-                        onChange={(e) =>
-                          setReviewForm((prev) => ({
-                            ...prev,
-                            title: e.target.value,
-                          }))
-                        }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700"
-                        placeholder="Great product"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Review
-                      </label>
-                      <textarea
-                        rows="4"
-                        value={reviewForm.body}
-                        onChange={(e) =>
-                          setReviewForm((prev) => ({
-                            ...prev,
-                            body: e.target.value,
-                          }))
-                        }
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700"
-                        placeholder="Share details about your experience"
-                      />
-                    </div>
-                  </div>
-                  {reviewError ? (
-                    <p className="text-sm text-red-600 mt-3">{reviewError}</p>
-                  ) : null}
-                  <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                  {/* Mobile Action Buttons */}
+                  <div className="flex gap-2 mt-3 lg:hidden">
                     <button
-                      type="submit"
-                      disabled={reviewSubmitting}
-                      className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-60"
+                      onClick={handleAddToCart}
+                      disabled={stockCount <= 0 || addingToCart}
+                      className={`flex-1 py-2.5 rounded-lg font-semibold text-sm ${
+                        stockCount > 0 && !addingToCart
+                          ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      }`}
                     >
-                      {reviewSubmitting
-                        ? "Saving..."
-                        : reviewEditingId
-                        ? "Update Review"
-                        : "Submit Review"}
+                      {stockCount > 0 ? (addingToCart ? "Adding..." : addedToCart ? "✓ Added" : "Add to Cart") : "Out of Stock"}
                     </button>
-                    {reviewEditingId ? (
-                      <button
-                        type="button"
-                        onClick={resetReviewForm}
-                        className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-                      >
-                        Cancel Edit
-                      </button>
-                    ) : null}
+                    <Link href={backLink} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium text-sm text-center">
+                      Back
+                    </Link>
                   </div>
-                </form>
-              ) : (
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 mb-6 text-sm text-gray-600">
-                  Please sign in to leave a review.
                 </div>
-              )}
 
-              {reviewsLoading ? (
-                <div className="text-sm text-gray-500">Loading reviews...</div>
-              ) : reviews.length === 0 ? (
-                <div className="text-sm text-gray-500">
-                  No reviews yet. Be the first to review this product.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <div
-                      key={review.id}
-                      className="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <span className="font-semibold text-gray-900">
-                              {review.user?.full_name || "Customer"}
-                            </span>
-                            <span>-</span>
-                            <span>
-                              {review.created_at
-                                ? new Date(review.created_at).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                      month: "short",
-                                      day: "2-digit",
-                                      year: "numeric",
-                                    }
-                                  )
-                                : ""}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-2">
-                            <div className="flex">
-                              {renderStars(review.rating)}
-                            </div>
-                            <span className="text-sm text-gray-600">
-                              {review.rating}/5
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          {review.can_edit ? (
-                            <button
-                              onClick={() => handleEditReview(review)}
-                              className="px-3 py-1.5 text-sm font-semibold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
-                            >
-                              Edit
-                            </button>
-                          ) : null}
-                          {review.can_delete ? (
-                            <button
-                              onClick={() => handleDeleteReview(review.id)}
-                              className="px-3 py-1.5 text-sm font-semibold text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-50 transition-colors"
-                            >
-                              Delete
-                            </button>
-                          ) : null}
-                        </div>
+                {/* Product Info Section */}
+                <div className="p-4">
+                  <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">
+                    {product.category?.name || "Uncategorized"}
+                  </p>
+                  <h1 className="text-lg font-bold text-gray-900 mb-2 leading-tight">{product.name}</h1>
+                  
+                  {/* Rating */}
+                  <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">
+                    <div className="flex text-sm">{renderStars(Math.round(reviewSummary.average || 0))}</div>
+                    <span className="text-xs text-gray-500">{reviewSummary.average.toFixed(1)} ({reviewSummary.count} reviews)</span>
+                  </div>
+
+                  {/* Color & Size Options */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1.5">Color</p>
+                      <div className="flex flex-wrap gap-1">
+                        {(product.color || "Default").split(",").map((color) => (
+                          <span key={color.trim()} className="px-2 py-1 rounded border border-gray-200 text-xs text-gray-700 bg-gray-50 hover:border-green-400 cursor-pointer">
+                            {color.trim()}
+                          </span>
+                        ))}
                       </div>
-                      {review.title ? (
-                        <h3 className="text-sm font-semibold text-gray-900 mt-3">
-                          {review.title}
-                        </h3>
-                      ) : null}
-                      <p className="text-sm text-gray-600 mt-2">
-                        {review.body}
-                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1.5">Size</p>
+                      <div className="flex flex-wrap gap-1">
+                        {(product.size || "Standard").split(",").map((size) => (
+                          <span key={size.trim()} className="px-2 py-1 rounded border border-gray-200 text-xs text-gray-700 bg-gray-50 hover:border-green-400 cursor-pointer">
+                            {size.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Delivery Info */}
+                  <div className="bg-blue-50 rounded-lg p-2.5 mb-3">
+                    <p className="text-xs font-semibold text-blue-800">🚚 Estimated delivery: Aug 12-14</p>
+                    <p className="text-xs text-blue-600">Shipping: free</p>
+                  </div>
+
+                  {/* Description */}
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Description</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">{product.description || "No description available."}</p>
+                  </div>
+
+                  {/* Price & Add to Cart */}
+                  <div className="border-t border-gray-100 pt-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-bold text-gray-900">${priceLabel}</span>
+                      {pricing.discountActive && pricing.basePrice > pricing.discountedPrice && (
+                        <>
+                          <span className="text-sm text-gray-400 line-through">${originalPriceLabel}</span>
+                          <span className="text-xs font-semibold text-red-500">-{pricing.discountPercent}%</span>
+                        </>
+                      )}
+                    </div>
+                    {pricing.discountActive && product.discount_ends_at && (
+                      <DiscountCountdown endDate={product.discount_ends_at} />
+                    )}
+                    <p className={`text-sm font-medium ${stockCount > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {stockCount > 0 ? `In Stock (${stockCount})` : "Out of Stock"}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAddToCart}
+                        disabled={stockCount <= 0 || addingToCart}
+                        className={`px-4 py-1.5 rounded-lg font-medium text-sm ${
+                          stockCount > 0 && !addingToCart
+                            ? "bg-green-600 text-white hover:bg-green-700"
+                            : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        }`}
+                      >
+                        {stockCount > 0 ? (addingToCart ? "Adding..." : addedToCart ? "✓ Added" : "Add to Cart") : "Out of Stock"}
+                      </button>
+                      <Link href={backLink} className="px-4 py-1.5 rounded-lg font-medium text-sm border border-gray-300 text-gray-700 hover:bg-gray-50">
+                        ← Back to Products
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Product Details, Highlights & Reviews - 3 columns */}
+            <div className="bg-white rounded-lg px-3 py-2">
+              <div className="grid grid-cols-1 md:grid-cols-[auto_auto_1fr] md:gap-x-6">
+                {/* Product Details */}
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Product Details</h2>
+                  <table className="text-xs">
+                    <tbody>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">Product Type</td><td className="py-0.5 text-gray-800">{product.category?.name || "Uncategorized"}</td></tr>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">Brand</td><td className="py-0.5 text-gray-800">{product.brand || "Not specified"}</td></tr>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">Color</td><td className="py-0.5 text-gray-800">{product.color || "Not specified"}</td></tr>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">Material</td><td className="py-0.5 text-gray-800">{product.material || "Not specified"}</td></tr>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">Size</td><td className="py-0.5 text-gray-800">{product.size || "Not specified"}</td></tr>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">Weight</td><td className="py-0.5 text-gray-800">{product.weight || "Not specified"}</td></tr>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">Dimensions</td><td className="py-0.5 text-gray-800">{product.dimensions || "Not specified"}</td></tr>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">SKU</td><td className="py-0.5 text-gray-800">{product.sku || "Not specified"}</td></tr>
+                      <tr><td className="py-0.5 text-gray-500 pr-3">Availability</td><td className="py-0.5 text-gray-800">{stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                {/* Highlights */}
+                <div className="ml-10">
+                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Highlights</h2>
+                  <ul className="text-xs text-gray-700 space-y-3">
+                    <li className="flex gap-1.5"><span className="text-green-500">✓</span>{product.highlight_1 || "Quality build for everyday use"}</li>
+                    <li className="flex gap-1.5"><span className="text-green-500">✓</span>{product.highlight_2 || "Comfortable, reliable, and durable"}</li>
+                    <li className="flex gap-1.5"><span className="text-green-500">✓</span>{product.highlight_3 || "Designed to fit modern lifestyles"}</li>
+                    <li className="flex gap-1.5"><span className="text-green-500">✓</span>{product.highlight_4 || "Popular choice in this category"}</li>
+                  </ul>
+                </div>
+                {/* Reviews */}
+                <div className="ml-10">
+                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Reviews</h2>
+                  {isAuthenticated ? (
+                    <form onSubmit={handleReviewSubmit} className="bg-gray-50 rounded p-2 mb-2">
+                      <select value={reviewForm.rating} onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))} className="w-40 px-2 py-1 border border-gray-300 rounded text-xs mb-1">
+                        {[5, 4, 3, 2, 1].map((v) => <option key={v} value={v}>{"★".repeat(v)}{"☆".repeat(5-v)} {v} Stars</option>)}
+                      </select>
+                      <input type="text" value={reviewForm.title} onChange={(e) => setReviewForm((prev) => ({ ...prev, title: e.target.value }))} className="w-60 px-2 py-1 flex border border-gray-300 rounded text-xs mb-1" placeholder="Title (optional)" />
+                      <textarea rows="2" value={reviewForm.body} onChange={(e) => setReviewForm((prev) => ({ ...prev, body: e.target.value }))} className="w-full h-20 px-2 py-1 border border-gray-300 rounded text-xs mb-2" placeholder="Share your experience" />
+                      {reviewError && <p className="text-xs text-red-600 mb-1">{reviewError}</p>}
+                      <div className="flex gap-1">
+                        <button type="submit" disabled={reviewSubmitting} className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-60">
+                          {reviewSubmitting ? "..." : reviewEditingId ? "Update" : "Submit Review"}
+                        </button>
+                        {reviewEditingId && <button type="button" onClick={resetReviewForm} className="px-2 py-1 border border-gray-300 rounded text-xs">Cancel</button>}
+                      </div>
+                    </form>
+                  ) : (
+                    <p className="text-xs text-gray-500 bg-gray-50 rounded p-2 text-center">Sign in to review.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Reviews List - Separate Section */}
+            <div className="bg-white rounded-lg px-3 py-2">
+              <h2 className="text-sm font-semibold text-gray-900 mb-2">Customer Reviews</h2>
+              {reviewsLoading ? (
+                <p className="text-xs text-gray-500 text-center py-2">Loading...</p>
+              ) : reviews.length === 0 ? (
+                <p className="text-xs text-gray-500 text-center py-2">No reviews yet. Be the first to review this product.</p>
+              ) : (
+                <div className="space-y-2">
+                  {reviews.map((review) => (
+                    <div key={review.id} className="border border-gray-100 rounded-lg p-3 flex justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm text-gray-900">{review.user?.full_name || "Customer"}</span>
+                          <span className="flex text-yellow-500">{renderStars(review.rating)}</span>
+                          <span className="text-xs text-gray-400">{review.created_at ? new Date(review.created_at).toLocaleDateString() : ""}</span>
+                        </div>
+                        {review.title && <p className="text-sm font-medium text-gray-800 mb-0.5">{review.title}</p>}
+                        <p className="text-sm text-gray-600">{review.body}</p>
+                      </div>
+                      {(review.can_edit || review.can_delete) && (
+                        <div className="flex gap-2 ml-4">
+                          {review.can_edit && <button onClick={() => handleEditReview(review)} className="text-xs text-blue-600 hover:underline">Edit</button>}
+                          {review.can_delete && <button onClick={() => handleDeleteReview(review.id)} className="text-xs text-red-600 hover:underline">Delete</button>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={handleAddToCart}
-                disabled={stockCount <= 0 || addingToCart}
-                className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
-                  stockCount > 0 && !addingToCart
-                    ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                {stockCount > 0
-                  ? addingToCart
-                    ? "Adding..."
-                    : addedToCart
-                    ? "Added"
-                    : "Add to Cart"
-                  : "Out of Stock"}
-              </button>
-              <Link
-                href={backLink}
-                className="flex-1 px-6 py-3 border border-green-200 text-green-700 rounded-xl font-semibold text-center hover:bg-green-50 transition-all"
-              >
-                Back to Products
-              </Link>
             </div>
           </div>
         )}

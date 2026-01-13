@@ -15,6 +15,7 @@ export default function VerifyOTP() {
   const [resending, setResending] = useState(false);
   const [errors, setErrors] = useState({});
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutes
+  const [emailFailed, setEmailFailed] = useState(false);
   const inputRefs = useRef([]);
 
   // Redirect if no email
@@ -23,6 +24,12 @@ export default function VerifyOTP() {
       router.push("/register");
     }
   }, [email, router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const emailFailedFlag = sessionStorage.getItem("otp_email_failed") === "1";
+    setEmailFailed(emailFailedFlag);
+  }, []);
 
   // Countdown timer
   useEffect(() => {
@@ -112,7 +119,16 @@ export default function VerifyOTP() {
     setErrors({});
 
     try {
-      await api.post("/resend-otp", { email: email });
+      const response = await api.post("/resend-otp", { email: email });
+      const emailFailedFlag = response.data?.email_sent === false;
+      if (typeof window !== "undefined") {
+        if (emailFailedFlag) {
+          sessionStorage.setItem("otp_email_failed", "1");
+        } else {
+          sessionStorage.removeItem("otp_email_failed");
+        }
+      }
+      setEmailFailed(emailFailedFlag);
       setTimeLeft(120); // Reset timer
       setOtp(["", "", "", "", "", ""]); // Clear current OTP
       inputRefs.current[0]?.focus();
@@ -190,6 +206,11 @@ export default function VerifyOTP() {
             {errors?.general && (
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-center text-sm font-medium backdrop-blur-sm">
                 {errors.general[0]}
+              </div>
+            )}
+            {emailFailed && (
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-700 text-center text-sm font-medium">
+                We could not deliver the email. Please use "Resend Code" or check your mail settings.
               </div>
             )}
 

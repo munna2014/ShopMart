@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: "http://localhost:8001/api",
   headers: {
     "X-Requested-With": "XMLHttpRequest",
     Accept: "application/json",
@@ -19,7 +19,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const requestUrl = error.config?.url || "";
+    const isAuthRequest = ["/login"].some((path) =>
+      requestUrl.includes(path)
+    );
+    if (status === 401 && !isAuthRequest) {
       localStorage.removeItem("admin_token");
       window.location.href = "/login";
     }

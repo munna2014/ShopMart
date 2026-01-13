@@ -33,7 +33,7 @@ ShopMart is a full-stack ecommerce app with a Laravel backend and a Next.js fron
 - Start the frontend:
   - `npm run dev`
 
-The frontend is configured to call the backend at `http://localhost:8000/api`.
+The frontend is configured to call the backend at `http://localhost:8001/api`.
 
 ## Notes
 

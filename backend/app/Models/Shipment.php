@@ -4,6 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Mail\OrderDelivered;
+use Illuminate\Support\Facades\Mail;
+use App\Models\CustomerNotification;
 
 class Shipment extends Model
 {
@@ -62,7 +65,25 @@ class Shipment extends Model
 
         // Update order status if delivered
         if ($status === 'DELIVERED') {
+            $order = $this->order;
+            $wasDelivered = $order && $order->status === 'DELIVERED';
             $this->order->updateStatus('DELIVERED');
+
+            if ($order && !$wasDelivered) {
+                $orderLabel = sprintf('#ORD-%05d', $order->id);
+                CustomerNotification::create([
+                    'user_id' => $order->user_id,
+                    'order_id' => $order->id,
+                    'type' => 'ORDER_DELIVERED',
+                    'title' => 'Order delivered',
+                    'message' => "Your order {$orderLabel} has been delivered.",
+                    'is_read' => false,
+                ]);
+
+                if ($order->user && $order->user->email) {
+                    Mail::to($order->user->email)->queue(new OrderDelivered($order));
+                }
+            }
         }
     }
 

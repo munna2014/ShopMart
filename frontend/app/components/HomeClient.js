@@ -23,6 +23,9 @@ export default function HomeClient() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsFetched, setNotificationsFetched] = useState(false);
   const [hasToken, setHasToken] = useState(false);
+  const notificationsCacheKey = user?.id
+    ? `customer_notifications_${user.id}`
+    : null;
   
   // State for real data
   const [stats, setStats] = useState({
@@ -117,17 +120,58 @@ export default function HomeClient() {
     fetchHomeData();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !notificationsCacheKey) {
+      return;
+    }
+
+    const cached = localStorage.getItem(notificationsCacheKey);
+    if (!cached) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(cached);
+      if (typeof parsed.unread_count === "number") {
+        setUnreadNotifications(parsed.unread_count);
+      }
+    } catch (error) {
+      console.error("Failed to parse cached notifications:", error);
+    }
+  }, [notificationsCacheKey]);
+
   const fetchNotifications = async ({ force = false } = {}) => {
     if (notificationsLoading || (notificationsFetched && !force)) {
       return;
     }
     setNotificationsLoading(true);
     try {
-      const response = await api.get('/notifications');
-      setUnreadNotifications(response.data.unread_count || 0);
+      const response = await api.get("/notifications");
+      const nextUnreadCount = response.data.unread_count || 0;
+      setUnreadNotifications(nextUnreadCount);
       setNotificationsFetched(true);
+
+      if (typeof window !== "undefined" && notificationsCacheKey) {
+        let nextCache = { unread_count: nextUnreadCount };
+        const cached = localStorage.getItem(notificationsCacheKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            nextCache = { ...parsed, unread_count: nextUnreadCount };
+          } catch (error) {
+            console.error("Failed to parse cached notifications:", error);
+          }
+        }
+        localStorage.setItem(
+          notificationsCacheKey,
+          JSON.stringify({
+            ...nextCache,
+            cached_at: new Date().toISOString(),
+          })
+        );
+      }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error("Error fetching notifications:", error);
       setUnreadNotifications(0);
     } finally {
       setNotificationsLoading(false);
@@ -417,7 +461,7 @@ export default function HomeClient() {
                               `/products?search=${encodeURIComponent(product.name)}`
                             );
                           }}
-                          className="w-full flex items-center gap-3 text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="w-full flex items-center gap-3 text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors group"
                         >
                           <img
                             src={
@@ -434,6 +478,20 @@ export default function HomeClient() {
                           />
                           <span className="font-semibold text-gray-900">
                             {product.name}
+                          </span>
+                          <span className="ml-auto text-gray-300 group-hover:text-gray-500 transition-colors">
+                            <svg
+                              className="w-4 h-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M7 17L17 7M7 7h10v10" />
+                            </svg>
                           </span>
                         </button>
                       ))
@@ -1158,7 +1216,7 @@ export default function HomeClient() {
 
           <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-gray-400">
-              &copy; 2024 ShopMart. All rights reserved.
+              &copy; 2026 ShopMart. All rights reserved.
             </p>
             <div className="flex items-center gap-4">
               {[

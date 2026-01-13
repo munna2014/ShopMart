@@ -7,11 +7,13 @@ use App\Models\CustomerNotification;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\UserAddress;
+use App\Mail\OrderDelivered;
 use App\Mail\OrderShipped;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
@@ -21,7 +23,7 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $orders = Order::select('id', 'user_id', 'status', 'total_amount', 'currency', 'created_at')
+        $orders = Order::select('id', 'user_id', 'status', 'total_amount', 'currency', 'payment_method', 'payment_status', 'paid_at', 'created_at')
             ->with([
                 'items' => function ($query) {
                     $query->select('id', 'order_id', 'product_id', 'quantity', 'unit_price', 'total_price')
@@ -43,17 +45,64 @@ class OrderController extends Controller
     }
 
     /**
+     * Return summary metrics for the authenticated customer.
+     */
+    public function summary(Request $request): JsonResponse
+    {
+        $summary = Order::where('user_id', $request->user()->id)
+            ->where('status', '!=', 'CANCELLED')
+            ->selectRaw('COUNT(*) as total_orders, COALESCE(SUM(total_amount), 0) as total_spent')
+            ->first();
+
+        return response()->json([
+            'status' => 'success',
+            'total_orders' => (int) ($summary->total_orders ?? 0),
+            'total_spent' => (float) ($summary->total_spent ?? 0),
+        ]);
+    }
+
+    /**
+     * Show a single order for the authenticated customer.
+     */
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $order = Order::select('id', 'user_id', 'status', 'total_amount', 'currency', 'payment_method', 'payment_status', 'paid_at', 'shipping_address', 'created_at')
+            ->with([
+                'items' => function ($query) {
+                    $query->select('id', 'order_id', 'product_id', 'quantity', 'unit_price', 'total_price')
+                        ->with([
+                            'product' => function ($productQuery) {
+                                $productQuery->select('id', 'name', 'price', 'image_url');
+                            },
+                        ]);
+                },
+            ])
+            ->where('user_id', $request->user()->id)
+            ->where('id', $id)
+            ->firstOrFail();
+
+        return response()->json([
+            'status' => 'success',
+            'order' => $order,
+        ]);
+    }
+
+    /**
      * Place a new order from checkout.
      */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'address_id' => 'required|integer',
+            'payment_method' => 'nullable|string|in:COD,STRIPE',
         ]);
 
+        $paymentMethod = $validated['payment_method'] ?? 'COD';
+
         try {
-            $order = DB::transaction(function () use ($validated, $request) {
+            $order = DB::transaction(function () use ($validated, $request, $paymentMethod) {
                 $user = $request->user();
+                $paymentStatus = $paymentMethod == 'STRIPE' ? 'PENDING' : 'UNPAID';
 
                 $address = UserAddress::where('user_id', $user->id)
                     ->where('id', $validated['address_id'])
@@ -73,6 +122,11 @@ class OrderController extends Controller
                 $order = Order::create([
                     'user_id' => $user->id,
                     'status' => 'PENDING',
+                    'payment_method' => $paymentMethod,
+                    'payment_status' => $paymentStatus,
+                    'stripe_payment_intent_id' => null,
+                    'stripe_payment_status' => null,
+                    'paid_at' => null,
                     'total_amount' => 0,
                     'currency' => 'USD',
                     'shipping_address' => [
@@ -143,9 +197,23 @@ class OrderController extends Controller
                 return $order->load(['items.product', 'user']);
             });
 
+            $payment = null;
+            if ($paymentMethod === 'STRIPE') {
+                try {
+                    $payment = $this->createStripePaymentIntent($order);
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Failed to initialize payment.',
+                        'error' => $e->getMessage(),
+                    ], 500);
+                }
+            }
+
             return response()->json([
                 'status' => 'success',
                 'order' => $order,
+                'payment' => $payment,
             ], 201);
         } catch (ValidationException $e) {
             throw $e;
@@ -156,6 +224,181 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Return Stripe publishable key for checkout.
+     */
+    public function stripeConfig(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'publishable_key' => config('services.stripe.publishable'),
+        ]);
+    }
+
+    /**
+     * Confirm a Stripe payment and update the order.
+     */
+    public function confirmStripePayment(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'payment_intent_id' => 'required|string',
+        ]);
+
+        $order = Order::with(['items.product', 'user'])
+            ->where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        if ($order->payment_method !== 'STRIPE') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Order is not configured for Stripe payments.',
+            ], 400);
+        }
+
+        $secret = config('services.stripe.secret');
+        if (!$secret) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Stripe is not configured.',
+            ], 500);
+        }
+
+        $intentId = $validated['payment_intent_id'];
+        if ($order->stripe_payment_intent_id && $order->stripe_payment_intent_id !== $intentId) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Payment intent does not match this order.',
+            ], 422);
+        }
+
+        $response = Http::withToken($secret)
+            ->get("https://api.stripe.com/v1/payment_intents/{$intentId}");
+
+        if (!$response->successful()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to verify payment with Stripe.',
+            ], 502);
+        }
+
+        $intent = $response->json();
+        $stripeStatus = $intent['status'] ?? null;
+
+        $updates = [
+            'stripe_payment_intent_id' => $intent['id'] ?? $intentId,
+            'stripe_payment_status' => $stripeStatus,
+        ];
+
+        if ($stripeStatus === 'succeeded') {
+            $updates['payment_status'] = 'PAID';
+            $updates['status'] = 'PAID';
+            $updates['paid_at'] = now();
+        } elseif (in_array($stripeStatus, ['processing', 'requires_capture'], true)) {
+            $updates['payment_status'] = 'PENDING';
+        } else {
+            $updates['payment_status'] = 'FAILED';
+        }
+
+        $order->update($updates);
+
+        return response()->json([
+            'status' => 'success',
+            'order' => $order->fresh(['items.product', 'user']),
+        ]);
+    }
+
+    /**
+     * Create (or re-create) a Stripe payment intent for an existing order.
+     */
+    public function createStripePayment(Request $request, int $id): JsonResponse
+    {
+        $order = Order::with(['items.product', 'user'])
+            ->where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        if ($order->payment_method !== 'STRIPE') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Order is not configured for Stripe payments.',
+            ], 400);
+        }
+
+        if ($order->payment_status === 'PAID') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Order is already paid.',
+            ], 400);
+        }
+
+        try {
+            $payment = $this->createStripePaymentIntent($order);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to initialize payment.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'order' => $order->fresh(['items.product', 'user']),
+            'payment' => $payment,
+        ]);
+    }
+
+    /**
+     * Create a Stripe payment intent for an order.
+     */
+    private function createStripePaymentIntent(Order $order): array
+    {
+        $secret = config('services.stripe.secret');
+        if (!$secret) {
+            throw new \RuntimeException('Stripe secret key not configured.');
+        }
+
+        $amountCents = (int) round(((float) $order->total_amount) * 100);
+        $currency = strtolower($order->currency ?: 'usd');
+
+        $response = Http::withToken($secret)
+            ->asForm()
+            ->post('https://api.stripe.com/v1/payment_intents', [
+                'amount' => $amountCents,
+                'currency' => $currency,
+                'payment_method_types[]' => 'card',
+                'metadata[order_id]' => (string) $order->id,
+                'description' => 'ShopMart order ' . $this->formatOrderLabel($order),
+            ]);
+
+        if (!$response->successful()) {
+            $order->update(['payment_status' => 'FAILED']);
+            $message = data_get($response->json(), 'error.message', 'Failed to create Stripe payment intent.');
+            throw new \RuntimeException($message);
+        }
+
+        $intent = $response->json();
+
+        $order->update([
+            'stripe_payment_intent_id' => $intent['id'] ?? null,
+            'stripe_payment_status' => $intent['status'] ?? null,
+            'payment_status' => $order->payment_status === 'PAID' ? 'PAID' : 'PENDING',
+        ]);
+
+        return [
+            'provider' => 'stripe',
+            'payment_intent_id' => $intent['id'] ?? null,
+            'client_secret' => $intent['client_secret'] ?? null,
+            'status' => $intent['status'] ?? null,
+        ];
+    }
+
+    private function formatOrderLabel(Order $order): string
+    {
+        return sprintf('#ORD-%05d', $order->id);
     }
 
     /**
@@ -270,15 +513,42 @@ class OrderController extends Controller
         $order = Order::findOrFail($id);
         $previousStatus = $order->status;
         $order->status = $validated['status'];
+        $isCodPayment = $order->payment_method === 'COD' || $order->payment_method === null;
+
+        if ($isCodPayment) {
+            if ($validated['status'] === 'DELIVERED') {
+                if ($order->payment_method === null) {
+                    $order->payment_method = 'COD';
+                }
+                $order->payment_status = 'PAID';
+                if (!$order->paid_at) {
+                    $order->paid_at = now();
+                }
+            } elseif ($validated['status'] === 'CANCELLED') {
+                $order->payment_status = 'FAILED';
+                $order->paid_at = null;
+            } else {
+                $order->payment_status = 'UNPAID';
+                $order->paid_at = null;
+            }
+        } elseif ($validated['status'] === 'CANCELLED' && $order->payment_status !== 'PAID') {
+            $order->payment_status = 'FAILED';
+        }
         $order->save();
 
         $statusChanged = $previousStatus !== $order->status;
 
-        if ($statusChanged && in_array($order->status, ['SHIPPED', 'CANCELLED'], true)) {
+        if ($statusChanged && in_array($order->status, ['SHIPPED', 'DELIVERED', 'CANCELLED'], true)) {
             $orderLabel = sprintf('#ORD-%05d', $order->id);
-            $statusLabel = $order->status === 'SHIPPED' ? 'shipped' : 'cancelled';
-            $title = $order->status === 'SHIPPED' ? 'Order shipped' : 'Order cancelled';
-            $type = $order->status === 'SHIPPED' ? 'ORDER_SHIPPED' : 'ORDER_CANCELLED';
+            $statusLabel = $order->status === 'SHIPPED'
+                ? 'shipped'
+                : ($order->status === 'DELIVERED' ? 'delivered' : 'cancelled');
+            $title = $order->status === 'SHIPPED'
+                ? 'Order shipped'
+                : ($order->status === 'DELIVERED' ? 'Order delivered' : 'Order cancelled');
+            $type = $order->status === 'SHIPPED'
+                ? 'ORDER_SHIPPED'
+                : ($order->status === 'DELIVERED' ? 'ORDER_DELIVERED' : 'ORDER_CANCELLED');
 
             CustomerNotification::create([
                 'user_id' => $order->user_id,
@@ -293,6 +563,11 @@ class OrderController extends Controller
         if ($statusChanged && $order->status === 'SHIPPED') {
             if ($order->user && $order->user->email) {
                 Mail::to($order->user->email)->queue(new OrderShipped($order));
+            }
+        }
+        if ($statusChanged && $order->status === 'DELIVERED') {
+            if ($order->user && $order->user->email) {
+                Mail::to($order->user->email)->queue(new OrderDelivered($order));
             }
         }
 

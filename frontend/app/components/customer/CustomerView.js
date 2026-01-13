@@ -8,13 +8,25 @@ import api from "@/lib/axios";
 import PasswordInput from "@/components/PasswordInput";
 import { getPricing } from "@/lib/pricing";
 
+const VALID_TABS = [
+  "profile",
+  "orders",
+  "notifications",
+  "shop",
+  "addresses",
+  "settings",
+];
+
 export default function CustomerView({ customer: initialCustomer }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { logout, refreshUser } = useAuth();
   const [customer, setCustomer] = useState(initialCustomer);
+  const tabParam = searchParams.get("tab");
 
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState(() =>
+    VALID_TABS.includes(tabParam) ? tabParam : "profile"
+  );
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
   const [profilePicture, setProfilePicture] = useState(null);
   const [cart, setCart] = useState([]);
@@ -77,11 +89,33 @@ export default function CustomerView({ customer: initialCustomer }) {
     0
   );
   const trimmedProductSearch = productSearch.trim();
+  const notificationsCacheKey = customer?.id
+    ? `customer_notifications_${customer.id}`
+    : null;
+  const ordersSummaryCacheKey = customer?.id
+    ? `customer_orders_summary_${customer.id}`
+    : null;
 
   const handleProfilePictureChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       try {
+        const allowedTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/jpg",
+          "image/gif",
+          "image/webp",
+        ];
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (!allowedTypes.includes(file.type)) {
+          alert("Please upload a JPG, PNG, GIF, or WEBP image.");
+          return;
+        }
+        if (file.size > maxSize) {
+          alert("Image must be 10MB or smaller.");
+          return;
+        }
         setProfilePictureUploading(true);
         
         // Create FormData for file upload
@@ -89,11 +123,7 @@ export default function CustomerView({ customer: initialCustomer }) {
         formData.append('avatar', file);
 
         // Upload to backend
-        const response = await api.post('/profile/avatar', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
+        const response = await api.post('/profile/avatar', formData);
 
         if (response.data.status === 'success') {
           // Update local state with the uploaded image URL
@@ -233,6 +263,27 @@ export default function CustomerView({ customer: initialCustomer }) {
     return status || "Pending";
   };
 
+  const mapPaymentMethod = (method) => {
+    if (method === "STRIPE") return "Online (Stripe)";
+    if (method === "COD") return "Cash on Delivery";
+    return method || "Cash on Delivery";
+  };
+
+  const mapPaymentStatus = (status) => {
+    if (status === "PAID") return "Paid";
+    if (status === "PENDING") return "Pending";
+    if (status === "FAILED") return "Failed";
+    if (status === "UNPAID") return "Unpaid";
+    return status || "Unpaid";
+  };
+
+  const getPaymentStatusClasses = (status) => {
+    if (status === "PAID") return "bg-green-100 text-green-800";
+    if (status === "PENDING") return "bg-yellow-100 text-yellow-800";
+    if (status === "FAILED") return "bg-rose-100 text-rose-800";
+    return "bg-gray-100 text-gray-800";
+  };
+
   const tabs = [
     {
       id: "profile",
@@ -278,11 +329,66 @@ export default function CustomerView({ customer: initialCustomer }) {
   }, [customer]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || !notificationsCacheKey) {
+      return;
+    }
+
+    const cached = localStorage.getItem(notificationsCacheKey);
+    if (!cached) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed.notifications)) {
+        setNotifications(parsed.notifications);
+      }
+      if (typeof parsed.unread_count === "number") {
+        setUnreadNotifications(parsed.unread_count);
+      }
+    } catch (error) {
+      console.error("Failed to parse cached notifications:", error);
+    }
+  }, [notificationsCacheKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !ordersSummaryCacheKey) {
+      return;
+    }
+
+    const cached = localStorage.getItem(ordersSummaryCacheKey);
+    if (!cached) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(cached);
+      if (
+        typeof parsed.total_orders === "number" ||
+        typeof parsed.total_spent === "number"
+      ) {
+        const totalSpentValue =
+          typeof parsed.total_spent === "number" ? parsed.total_spent : 0;
+        setCustomer((prev) => ({
+          ...prev,
+          totalOrders:
+            typeof parsed.total_orders === "number"
+              ? parsed.total_orders
+              : prev.totalOrders,
+          totalSpent:
+            typeof parsed.total_spent === "number"
+              ? `$${Number(totalSpentValue).toFixed(2)}`
+              : prev.totalSpent,
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to parse cached orders summary:", error);
+    }
+  }, [ordersSummaryCacheKey]);
+
+  useEffect(() => {
     const tab = searchParams.get("tab");
-    if (
-      tab &&
-      ["profile", "orders", "notifications", "shop", "addresses", "settings"].includes(tab)
-    ) {
+    if (tab && VALID_TABS.includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -387,6 +493,10 @@ export default function CustomerView({ customer: initialCustomer }) {
     fetchNotifications();
   }, []);
 
+  useEffect(() => {
+    fetchOrdersSummary();
+  }, [ordersSummaryCacheKey]);
+
   // Load cart only when the shop tab is active
   useEffect(() => {
     if (activeTab === "shop") {
@@ -448,21 +558,63 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
-  const fetchNotifications = async ({ force = false } = {}) => {
+  const fetchOrdersSummary = async () => {
+    if (!ordersSummaryCacheKey) {
+      return;
+    }
     try {
-      if (notificationsLoading || (!force && notificationsLoaded)) {
-        return;
+      const response = await api.get("/orders/summary");
+      const totalOrders = response.data.total_orders || 0;
+      const totalSpentValue = Number(response.data.total_spent || 0);
+      setCustomer((prev) => ({
+        ...prev,
+        totalOrders,
+        totalSpent: `$${totalSpentValue.toFixed(2)}`,
+      }));
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          ordersSummaryCacheKey,
+          JSON.stringify({
+            total_orders: totalOrders,
+            total_spent: totalSpentValue,
+            cached_at: new Date().toISOString(),
+          })
+        );
       }
-      setNotificationsLoading(true);
-      const response = await api.get('/notifications');
-      setNotifications(response.data.notifications || []);
-      setUnreadNotifications(response.data.unread_count || 0);
-      setNotificationsLoaded(true);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error("Error fetching orders summary:", error);
+    }
+  };
+
+  const fetchNotifications = async ({ force = false } = {}) => {
+    if (notificationsLoading || (!force && notificationsLoaded)) {
+      return;
+    }
+    try {
+      setNotificationsLoading(true);
+      const response = await api.get("/notifications");
+      const nextNotifications = response.data.notifications || [];
+      const nextUnreadCount = response.data.unread_count || 0;
+      setNotifications(nextNotifications);
+      setUnreadNotifications(nextUnreadCount);
+
+      if (typeof window !== "undefined" && notificationsCacheKey) {
+        localStorage.setItem(
+          notificationsCacheKey,
+          JSON.stringify({
+            notifications: nextNotifications,
+            unread_count: nextUnreadCount,
+            cached_at: new Date().toISOString(),
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
       setNotifications([]);
       setUnreadNotifications(0);
     } finally {
+      setNotificationsLoaded(true);
       setNotificationsLoading(false);
     }
   };
@@ -613,7 +765,18 @@ export default function CustomerView({ customer: initialCustomer }) {
       totalOrders,
       totalSpent: `$${totalSpentValue.toFixed(2)}`,
     }));
-  }, [orders]);
+
+    if (typeof window !== "undefined" && ordersSummaryCacheKey) {
+      localStorage.setItem(
+        ordersSummaryCacheKey,
+        JSON.stringify({
+          total_orders: totalOrders,
+          total_spent: totalSpentValue,
+          cached_at: new Date().toISOString(),
+        })
+      );
+    }
+  }, [orders, ordersSummaryCacheKey]);
 
   // Address form handlers
   const handleAddressFormChange = (field, value) => {
@@ -1306,7 +1469,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                         Total
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">
-                        Details
+                        Action
                       </th>
                     </tr>
                   </thead>
@@ -1351,6 +1514,20 @@ export default function CustomerView({ customer: initialCustomer }) {
                           0
                         );
                         const statusLabel = mapOrderStatus(order.status);
+                        const paymentMethodLabel = mapPaymentMethod(order.payment_method);
+                        const paymentStatusLabel = mapPaymentStatus(order.payment_status);
+                        const paidAtLabel = order.paid_at
+                          ? new Date(order.paid_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "2-digit",
+                              year: "numeric",
+                            })
+                          : "Not paid";
+                        const paymentNote =
+                          order.payment_method === "COD" &&
+                          order.status === "DELIVERED"
+                            ? "Paid on delivery"
+                            : "";
                         const showDetails = expandedOrderId === order.id;
                         const isPending = order.status === "PENDING";
                         const isCancelling = Boolean(cancellingOrders[order.id]);
@@ -1360,14 +1537,40 @@ export default function CustomerView({ customer: initialCustomer }) {
                           <Fragment key={order.id}>
                             <tr
                               id={`order-row-${order.id}`}
-                              className={`transition-colors ${
+                              onClick={() =>
+                                router.push(
+                                  `/components/customer/checkout?order_id=${order.id}`
+                                )
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  router.push(
+                                    `/components/customer/checkout?order_id=${order.id}`
+                                  );
+                                }
+                              }}
+                              role="button"
+                              tabIndex={0}
+                              className={`transition-colors cursor-pointer ${
                                 isSelected
                                   ? "bg-green-50"
                                   : "hover:bg-gray-50"
                               }`}
                             >
                               <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                                {`#ORD-${String(order.id).padStart(5, "0")}`}
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    router.push(
+                                      `/components/customer/checkout?order_id=${order.id}`
+                                    );
+                                  }}
+                                  className="text-gray-900 hover:text-green-700 hover:underline"
+                                >
+                                  {`#ORD-${String(order.id).padStart(5, "0")}`}
+                                </button>
                               </td>
                               <td className="px-6 py-4 text-sm text-gray-500 hidden sm:table-cell">
                                 {orderDate}
@@ -1396,14 +1599,22 @@ export default function CustomerView({ customer: initialCustomer }) {
                               <td className="px-6 py-4 text-sm">
                                 <div className="flex items-center gap-4">
                                   <button
-                                    onClick={() => toggleOrderDetails(order.id)}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      router.push(
+                                        `/components/customer/checkout?order_id=${order.id}`
+                                      );
+                                    }}
                                     className="text-green-600 font-semibold hover:text-green-700"
                                   >
-                                    {showDetails ? "Hide" : "View"}
+                                  
                                   </button>
                                   {isPending && (
                                     <button
-                                      onClick={() => cancelOrder(order.id)}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        cancelOrder(order.id);
+                                      }}
                                       disabled={isCancelling}
                                       className={`font-semibold ${
                                         isCancelling
@@ -1427,6 +1638,33 @@ export default function CustomerView({ customer: initialCustomer }) {
                                       </div>
                                       <div className="text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                                         {itemCount} items
+                                      </div>
+                                    </div>
+                                    <div className="grid gap-3 sm:grid-cols-3 mb-4">
+                                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                                        <div className="text-xs uppercase text-gray-500">Payment Method</div>
+                                        <div className="font-semibold text-gray-900">
+                                          {paymentMethodLabel}
+                                        </div>
+                                      </div>
+                                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                                        <div className="text-xs uppercase text-gray-500">Payment Status</div>
+                                        <span
+                                          className={`inline-flex mt-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                                            getPaymentStatusClasses(order.payment_status)
+                                          }`}
+                                        >
+                                          {paymentStatusLabel}
+                                        </span>
+                                        {paymentNote && (
+                                          <div className="mt-2 text-xs font-medium text-gray-500">
+                                            {paymentNote}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                                        <div className="text-xs uppercase text-gray-500">Paid At</div>
+                                        <div className="font-semibold text-gray-900">{paidAtLabel}</div>
                                       </div>
                                     </div>
                                     {order.items && order.items.length > 0 ? (
@@ -1532,7 +1770,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                 </div>
               </div>
               <div className="divide-y divide-gray-100">
-                {notificationsLoading || !notificationsLoaded ? (
+                {!notificationsLoaded && notifications.length === 0 ? (
                   <div className="px-6 py-10 text-center text-sm text-gray-500">
                     Loading notifications...
                   </div>
@@ -2407,6 +2645,15 @@ export default function CustomerView({ customer: initialCustomer }) {
                     <option value="IN">India</option>
                     <option value="BR">Brazil</option>
                     <option value="MX">Mexico</option>
+                    <option value="BD">Bangladesh</option>
+                    <option value="PK">Pakistan</option>
+                    <option value="IN">India</option>
+                    <option value="CN">China</option>
+                    <option value="JP">Japan</option>
+                    <option value="KR">Korea</option>
+                    <option value="TW">Taiwan</option>
+                    <option value="HK">Hong Kong</option>
+                    <option value="MO">Macau</option>
                   </select>
                 </div>
 

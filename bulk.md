@@ -56,7 +56,7 @@ This project does not include a built-in bulk upload endpoint, but you can bulk 
 const fs = require("fs");
 const axios = require("axios");
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "http://localhost:8001/api";
 const TOKEN = process.env.SHOPMART_TOKEN; // admin token
 
 if (!TOKEN) {

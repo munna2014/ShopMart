@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
 use App\Mail\OtpEmail;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -14,9 +16,32 @@ class AuthController extends Controller
         try {
             $fields = $request->validate([
                 'name' => 'required|string',
-                'email' => 'required|string|email|unique:users,email|unique:pending_users,email',
+                'email' => 'required|string|email',
                 'password' => 'required|string|confirmed'
             ]);
+            $fields['name'] = trim($fields['name']);
+            $fields['email'] = trim($fields['email']);
+            $this->ensureEmailDomainReceivesMail($fields['email']);  
+            $this->clearExpiredPendingUser($fields['email']);
+
+            if (\App\Models\User::where('full_name', $fields['name'])->exists() ||
+                \App\Models\PendingUser::where('full_name', $fields['name'])->exists()) {
+                throw ValidationException::withMessages([
+                    'name' => ['The username has already been taken.'],
+                ]);
+            }
+
+            if (\App\Models\User::where('email', $fields['email'])->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => ['The email has already been taken.'],
+                ]);
+            }
+
+            if (\App\Models\PendingUser::where('email', $fields['email'])->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => ['Email already pending verification. Please use resend code.'],
+                ]);
+            }
 
             // Create pending user (NOT in main users table yet)
             $pendingUser = \App\Models\PendingUser::create([
@@ -38,15 +63,18 @@ class AuthController extends Controller
             ]);
 
             // Send OTP email
+            $emailSent = true;
             try {
                 Mail::to($pendingUser->email)->send(new OtpEmail($otp, $pendingUser->full_name));
             } catch (\Exception $e) {
+                $emailSent = false;
                 Log::error('Mail Error: ' . $e->getMessage());
             }
 
             return response()->json([
                 'message' => 'Registration successful. Please check your email for verification code.',
                 'email' => $pendingUser->email,
+                'email_sent' => $emailSent,
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -138,6 +166,7 @@ class AuthController extends Controller
     public function resendOtp(Request $request)
     {
         $request->validate(['email' => 'required|email']);
+        $this->ensureEmailDomainReceivesMail($request->email);
         
         // First check if it's a pending user
         $pendingUser = \App\Models\PendingUser::where('email', $request->email)->first();
@@ -165,14 +194,17 @@ class AuthController extends Controller
             ]);
 
             // Send OTP email
+            $emailSent = true;
             try {
                 Mail::to($pendingUser->email)->send(new OtpEmail($otp, $pendingUser->full_name));
             } catch (\Exception $e) {
+                $emailSent = false;
                 Log::error('Mail Error: ' . $e->getMessage());
             }
 
             return response()->json([
                 'message' => 'New OTP sent to your email.',
+                'email_sent' => $emailSent,
             ], 200);
         }
 
@@ -203,14 +235,17 @@ class AuthController extends Controller
         ]);
 
         // Send OTP email
+        $emailSent = true;
         try {
             Mail::to($user->email)->send(new OtpEmail($otp, $user->full_name));
         } catch (\Exception $e) {
+            $emailSent = false;
             Log::error('Mail Error: ' . $e->getMessage());
         }
 
         return response()->json([
             'message' => 'New OTP sent to your email.',
+            'email_sent' => $emailSent,
         ], 200);
     }
 
@@ -272,6 +307,7 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email|exists:users,email'
         ]);
+        $this->ensureEmailDomainReceivesMail($request->email);
 
         $user = \App\Models\User::where('email', $request->email)->first();
 
@@ -296,15 +332,18 @@ class AuthController extends Controller
         ]);
 
         // Send OTP email
+        $emailSent = true;
         try {
             Mail::to($user->email)->send(new OtpEmail($otp, $user->full_name, 'Password Reset'));
         } catch (\Exception $e) {
+            $emailSent = false;
             Log::error('Password Reset Mail Error: ' . $e->getMessage());
         }
 
         return response()->json([
             'message' => 'Password reset code sent to your email.',
-            'email' => $user->email
+            'email' => $user->email,
+            'email_sent' => $emailSent,
         ], 200);
     }
 
@@ -384,5 +423,50 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Password reset successfully. Please login with your new password.'
         ], 200);
+    }
+
+    private function ensureEmailDomainReceivesMail(string $email): void
+    {
+        $domain = strtolower(trim((string) substr(strrchr($email, '@') ?: '', 1)));
+        if ($domain === '') {
+            throw ValidationException::withMessages([
+                'email' => ['Email domain is invalid.'],
+            ]);
+        }
+
+        $asciiDomain = $domain;
+        if (function_exists('idn_to_ascii')) {
+            $converted = idn_to_ascii($domain, 0, INTL_IDNA_VARIANT_UTS46);
+            if ($converted) {
+                $asciiDomain = $converted;
+            }
+        }
+
+        $mxRecords = dns_get_record($asciiDomain, DNS_MX);
+        if (!empty($mxRecords)) {
+            return;
+        }
+
+        $aRecords = dns_get_record($asciiDomain, DNS_A);
+        if (!empty($aRecords)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'email' => ['Email domain does not accept mail (no MX records).'],
+        ]);
+    }
+
+    private function clearExpiredPendingUser(string $email): void
+    {
+        $pendingUser = \App\Models\PendingUser::where('email', $email)->first();
+        if (!$pendingUser || !$pendingUser->isExpired()) {
+            return;
+        }
+
+        DB::transaction(function () use ($pendingUser) {
+            \App\Models\OtpCode::where('pending_user_id', $pendingUser->id)->delete();
+            $pendingUser->delete();
+        });
     }
 }

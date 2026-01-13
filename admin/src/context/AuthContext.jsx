@@ -41,9 +41,14 @@ export function AuthProvider({ children }) {
       setIsAuthenticated(true);
       return { success: true, user: userData };
     } catch (error) {
+      const status = error.response?.status;
+      const message =
+        status === 401
+          ? "Invalid email or password."
+          : error.response?.data?.message || "Login failed";
       return {
         success: false,
-        error: error.response?.data?.message || "Login failed",
+        error: message,
       };
     }
   };

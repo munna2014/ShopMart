@@ -12,6 +12,11 @@ class Order extends Model
     protected $fillable = [
         'user_id',
         'status',
+        'payment_method',
+        'payment_status',
+        'stripe_payment_intent_id',
+        'stripe_payment_status',
+        'paid_at',
         'total_amount',
         'currency',
         'shipping_address',
@@ -22,6 +27,7 @@ class Order extends Model
         'shipping_address' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'paid_at' => 'datetime',
     ];
 
     /**
@@ -64,6 +70,16 @@ class Order extends Model
     public function updateStatus(string $status)
     {
         $this->status = $status;
+        $isCodPayment = $this->payment_method === 'COD' || $this->payment_method === null;
+        if ($isCodPayment && $status === 'DELIVERED') {
+            if ($this->payment_method === null) {
+                $this->payment_method = 'COD';
+            }
+            $this->payment_status = 'PAID';
+            if (!$this->paid_at) {
+                $this->paid_at = now();
+            }
+        }
         $this->save();
 
         // Log audit

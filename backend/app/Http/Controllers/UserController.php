@@ -2,11 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cart;
+use App\Models\CustomerNotification;
+use App\Models\Order;
+use App\Models\OtpCode;
+use App\Models\Review;
 use App\Models\User;
+use App\Models\UserAddress;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -57,7 +64,32 @@ class UserController extends Controller
             return response()->json(['message' => 'You cannot delete admin users'], 403);
         }
 
-        $user->delete();
+        DB::transaction(function () use ($user) {
+            $orderIds = Order::where('user_id', $user->id)->pluck('id');
+
+            CustomerNotification::where('user_id', $user->id)->delete();
+            Review::where('user_id', $user->id)->delete();
+            UserAddress::where('user_id', $user->id)->delete();
+            OtpCode::where('user_id', $user->id)->delete();
+            Cart::where('user_id', $user->id)->delete();
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+            DB::table('audit_log')->where('actor_user_id', $user->id)->delete();
+
+            if ($orderIds->isNotEmpty()) {
+                DB::table('audit_log')
+                    ->where('entity_type', 'ORDER')
+                    ->whereIn('entity_id', $orderIds)
+                    ->delete();
+            }
+
+            Order::where('user_id', $user->id)->delete();
+
+            if ($user->avatar && Storage::disk('public')->exists($user->avatar)) {
+                Storage::disk('public')->delete($user->avatar);
+            }
+
+            $user->delete();
+        });
 
         return response()->json(['message' => 'User deleted successfully']);
     }

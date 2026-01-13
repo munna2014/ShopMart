@@ -279,30 +279,28 @@ export default function AboutClient({ isLoggedIn }) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="flex flex-wrap justify-center gap-8">
             {[
               {
-                name: "Sarah Johnson",
+                name: "Md. Samiul Alim",
                 role: "CEO & Founder",
                 color: "from-purple-500 to-purple-600",
               },
               {
-                name: "Michael Chen",
+                name: "Md. Faisal Abid",
                 role: "CTO",
                 color: "from-blue-500 to-blue-600",
               },
               {
-                name: "Emily Rodriguez",
-                role: "Head of Operations",
+                name: "Md.Sajedul Karim Munna",
+                role: "Developer",
                 color: "from-pink-500 to-pink-600",
               },
-              {
-                name: "David Kim",
-                role: "Head of Marketing",
-                color: "from-teal-500 to-teal-600",
-              },
             ].map((member, index) => (
-              <div key={index} className="group text-center">
+              <div
+                key={index}
+                className="group text-center w-full sm:w-[calc(50%-1rem)] lg:w-64"
+              >
                 <div
                   className={`w-48 h-48 mx-auto mb-6 bg-gradient-to-br ${member.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-2xl group-hover:scale-105 transition-all`}
                 >
@@ -426,7 +424,7 @@ export default function AboutClient({ isLoggedIn }) {
 
           <div className="border-t border-gray-800 pt-8 text-center">
             <p className="text-gray-400">
-              &copy; 2024 ShopMart. All rights reserved.
+              &copy; 2026 ShopMart. All rights reserved.
             </p>
           </div>
         </div>

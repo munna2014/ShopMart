@@ -381,7 +381,7 @@ export default function ProductsPage() {
                             setSearchTerm(product.name);
                             setShowSuggestions(false);
                           }}
-                          className="w-full flex items-center gap-3 text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="w-full flex items-center gap-3 text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors group"
                         >
                           <img
                             src={
@@ -398,6 +398,20 @@ export default function ProductsPage() {
                           />
                           <span className="font-semibold text-gray-900">
                             {product.name}
+                          </span>
+                          <span className="ml-auto text-gray-300 group-hover:text-gray-500 transition-colors">
+                            <svg
+                              className="w-4 h-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M7 17L17 7M7 7h10v10" />
+                            </svg>
                           </span>
                         </button>
                       ))

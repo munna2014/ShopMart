@@ -16,6 +16,9 @@ export default function Register() {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingMessage, setPendingMessage] = useState("");
+  const [pendingResendLoading, setPendingResendLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
@@ -52,6 +55,8 @@ export default function Register() {
     e.preventDefault();
     setLoading(true);
     setErrors({});
+    setPendingEmail("");
+    setPendingMessage("");
 
     if (!validateForm()) {
       setLoading(false);
@@ -62,18 +67,59 @@ export default function Register() {
       const response = await api.post("/register", formData);
       
       if (response.status === 201 || response.status === 200) {
+        if (typeof window !== "undefined") {
+          if (response.data?.email_sent === false) {
+            sessionStorage.setItem("otp_email_failed", "1");
+          } else {
+            sessionStorage.removeItem("otp_email_failed");
+          }
+        }
         // Redirect to OTP verification page with email parameter
         router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
       }
     } catch (error) {
       if (error.response && error.response.status === 422) {
-        setErrors(error.response.data.errors);
+        const responseErrors = error.response.data.errors || {};
+        const fallbackMessage = error.response.data?.message || "";
+        if (Object.keys(responseErrors).length === 0 && fallbackMessage) {
+          if (fallbackMessage.toLowerCase().includes("email")) {
+            responseErrors.email = [fallbackMessage];
+          } else {
+            responseErrors.general = [fallbackMessage];
+          }
+        }
+        setErrors(responseErrors);
+        const emailMessage = responseErrors.email?.[0] || fallbackMessage || "";
+        if (emailMessage.toLowerCase().includes("pending verification")) {
+          setPendingEmail(formData.email.trim());
+          setPendingMessage(emailMessage);
+        }
       } else {
         setErrors({ general: ["Something went wrong. Please try again."] });
       }
-      console.error("Register Error:", error);
+      console.warn("Register Error:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePendingResend = async () => {
+    if (!pendingEmail) return;
+    setPendingResendLoading(true);
+    try {
+      const response = await api.post("/resend-otp", { email: pendingEmail });
+      if (typeof window !== "undefined") {
+        if (response.data?.email_sent === false) {
+          sessionStorage.setItem("otp_email_failed", "1");
+        } else {
+          sessionStorage.removeItem("otp_email_failed");
+        }
+      }
+      router.push(`/verify-otp?email=${encodeURIComponent(pendingEmail)}`);
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to resend OTP.");
+    } finally {
+      setPendingResendLoading(false);
     }
   };
 
@@ -213,6 +259,30 @@ export default function Register() {
                 <p className="ml-1 text-sm text-red-400 font-medium">
                   {errors.email[0]}
                 </p>
+              )}
+              {pendingEmail && (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-800">
+                  <p className="font-semibold">{pendingMessage}</p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(`/verify-otp?email=${encodeURIComponent(pendingEmail)}`)
+                      }
+                      className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 transition-colors"
+                    >
+                      Verify Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePendingResend}
+                      disabled={pendingResendLoading}
+                      className="px-4 py-2 rounded-lg border border-emerald-300 text-emerald-700 font-semibold hover:bg-emerald-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {pendingResendLoading ? "Sending..." : "Resend Code"}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 

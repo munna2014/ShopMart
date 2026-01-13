@@ -87,6 +87,9 @@ export default function AdminDashboard() {
   const [bulkRowErrors, setBulkRowErrors] = useState({});
   const bulkFileInputRef = useRef(null);
   const [customers, setCustomers] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
+  const [pendingUsersLoading, setPendingUsersLoading] = useState(false);
+  const [pendingActions, setPendingActions] = useState({});
   const [orders, setOrders] = useState([]);
   const [deletingOrders, setDeletingOrders] = useState({});
   const [categories, setCategories] = useState([]);
@@ -160,6 +163,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchPendingUsers = async () => {
+    try {
+      setPendingUsersLoading(true);
+      const response = await api.get('/admin/pending-users');
+      setPendingUsers(response.data.pending_users || []);
+    } catch (error) {
+      console.error('Error fetching pending users:', error);
+      setPendingUsers([]);
+    } finally {
+      setPendingUsersLoading(false);
+    }
+  };
+
   // Fetch categories data
   const fetchCategories = async () => {
     try {
@@ -214,6 +230,27 @@ export default function AdminDashboard() {
     return status || "Processing";
   };
 
+  const mapPaymentMethod = (method) => {
+    if (method === "STRIPE") return "Online (Stripe)";
+    if (method === "COD") return "Cash on Delivery";
+    return method || "Cash on Delivery";
+  };
+
+  const mapPaymentStatus = (status) => {
+    if (status === "PAID") return "Paid";
+    if (status === "PENDING") return "Pending";
+    if (status === "FAILED") return "Failed";
+    if (status === "UNPAID") return "Unpaid";
+    return status || "Unpaid";
+  };
+
+  const getPaymentBadgeClass = (status) => {
+    if (status === "PAID") return "bg-emerald-200 text-emerald-900 ring-emerald-300";
+    if (status === "PENDING") return "bg-amber-200 text-amber-900 ring-amber-300";
+    if (status === "FAILED") return "bg-rose-200 text-rose-900 ring-rose-300";
+    return "bg-slate-200 text-slate-900 ring-slate-300";
+  };
+
   const mapStatusToApi = (status) => {
     if (status === "Pending") return "PENDING";
     if (status === "Processing") return "PAID";
@@ -221,6 +258,26 @@ export default function AdminDashboard() {
     if (status === "Delivered") return "DELIVERED";
     if (status === "Cancelled") return "CANCELLED";
     return "PENDING";
+  };
+
+  const formatDate = (value, withTime = false) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    if (withTime) {
+      return date.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
   };
 
   // Fetch orders data
@@ -244,6 +301,13 @@ export default function AdminDashboard() {
           date: orderDate,
           total: `$${Number(order.total_amount || 0).toFixed(2)}`,
           status: mapOrderStatus(order.status),
+          paymentMethod: mapPaymentMethod(order.payment_method),
+          paymentStatus: mapPaymentStatus(order.payment_status),
+          rawPaymentStatus: order.payment_status,
+          paymentNote:
+            order.payment_method === "COD" && order.status === "DELIVERED"
+              ? "Paid on delivery"
+              : "",
           products: (order.items || []).map((item) => ({
             name: item.product?.name || "Product",
             quantity: item.quantity,
@@ -288,6 +352,9 @@ export default function AdminDashboard() {
       if (tab === "customers") {
         if (customers.length === 0) {
           await fetchCustomers();
+        }
+        if (pendingUsers.length === 0) {
+          await fetchPendingUsers();
         }
       }
     } catch (error) {
@@ -638,6 +705,44 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleResendPendingUser = async (pendingUserId, email) => {
+    const actionKey = `resend-${pendingUserId}`;
+    setPendingActions((prev) => ({ ...prev, [actionKey]: true }));
+    try {
+      const response = await api.post(`/admin/pending-users/${pendingUserId}/resend`);
+      if (response.data?.email_sent === false) {
+        alert("Failed to send OTP email. Check mail settings.");
+      } else {
+        alert(`OTP resent to ${email}`);
+      }
+      if (response.data?.debug_otp) {
+        alert(`Dev OTP: ${response.data.debug_otp}`);
+      }
+      await fetchPendingUsers();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to resend OTP.");
+    } finally {
+      setPendingActions((prev) => ({ ...prev, [actionKey]: false }));
+    }
+  };
+
+  const handleDeletePendingUser = async (pendingUserId, email) => {
+    if (!confirm(`Delete pending user ${email}?`)) {
+      return;
+    }
+    const actionKey = `delete-${pendingUserId}`;
+    setPendingActions((prev) => ({ ...prev, [actionKey]: true }));
+    try {
+      await api.delete(`/admin/pending-users/${pendingUserId}`);
+      setPendingUsers((prev) => prev.filter((item) => item.id !== pendingUserId));
+      alert("Pending user deleted successfully.");
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to delete pending user.");
+    } finally {
+      setPendingActions((prev) => ({ ...prev, [actionKey]: false }));
+    }
+  };
+
   const handleEditProduct = (product) => {
     handleOpenProduct(product.id);
   };
@@ -649,11 +754,31 @@ export default function AdminDashboard() {
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
       const apiStatus = mapStatusToApi(newStatus);
-      await api.patch(`/admin/orders/${orderId}/status`, { status: apiStatus });
-      setOrders(
-        orders.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus } : order
-        )
+      const response = await api.patch(`/admin/orders/${orderId}/status`, { status: apiStatus });
+      const updatedOrder = response.data?.order;
+      setOrders((prev) =>
+        prev.map((order) => {
+          if (order.id !== orderId) return order;
+          if (!updatedOrder) {
+            return { ...order, status: newStatus };
+          }
+          const mappedStatus = mapOrderStatus(updatedOrder.status);
+          const mappedPaymentStatus = mapPaymentStatus(updatedOrder.payment_status);
+          const mappedPaymentMethod = mapPaymentMethod(updatedOrder.payment_method);
+          const paymentNote =
+            updatedOrder.payment_method === "COD" &&
+            updatedOrder.status === "DELIVERED"
+              ? "Paid on delivery"
+              : "";
+          return {
+            ...order,
+            status: mappedStatus,
+            paymentStatus: mappedPaymentStatus,
+            rawPaymentStatus: updatedOrder.payment_status,
+            paymentMethod: mappedPaymentMethod,
+            paymentNote,
+          };
+        })
       );
     } catch (error) {
       console.error("Error updating order status:", error);
@@ -1660,6 +1785,24 @@ export default function AdminDashboard() {
                               {order.total}
                             </div>
                           </div>
+                          <div className="text-right">
+                            <div className="text-xs uppercase tracking-wide text-slate-500">Payment</div>
+                            <div className="text-sm font-semibold text-slate-900">
+                              {order.paymentMethod}
+                            </div>
+                            <span
+                              className={`inline-flex mt-1 px-3 py-1 rounded-full text-xs font-semibold shadow-sm ring-2 ${
+                                getPaymentBadgeClass(order.rawPaymentStatus)
+                              }`}
+                            >
+                              {order.paymentStatus}
+                            </span>
+                            {order.paymentNote && (
+                              <div className="mt-1 text-[11px] font-medium text-slate-500">
+                                {order.paymentNote}
+                              </div>
+                            )}
+                          </div>
                           <span
                             className={`px-4 py-2 rounded-full text-sm font-semibold shadow-sm ring-2 ${
                               order.status === "Delivered"
@@ -1770,6 +1913,9 @@ export default function AdminDashboard() {
                         Total
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                        Payment
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
                         Current Status
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
@@ -1802,6 +1948,20 @@ export default function AdminDashboard() {
                           </td>
                           <td className="px-6 py-4 text-sm font-extrabold text-emerald-800">
                             {order.total}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold shadow-sm ring-2 ${
+                                getPaymentBadgeClass(order.rawPaymentStatus)
+                              }`}
+                            >
+                              {order.paymentStatus}
+                            </span>
+                            {order.paymentNote && (
+                              <div className="mt-1 text-[11px] font-medium text-slate-500">
+                                {order.paymentNote}
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             <span
@@ -1913,6 +2073,114 @@ export default function AdminDashboard() {
               <h2 className="text-3xl font-extrabold text-emerald-900 drop-shadow-sm mb-8">
                 Customers
               </h2>
+
+              <div className="mb-10 bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-200 ring-2 ring-emerald-100">
+                <div className="px-6 py-4 border-b border-emerald-100 bg-gradient-to-r from-emerald-100 via-lime-50 to-sky-100">
+                  <h3 className="text-lg font-bold text-emerald-900">Pending Users</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px]">
+                    <thead className="bg-white">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                          Name
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                          Email
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                          Created
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                          Expires
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                          OTP Sent
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                          Status
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-emerald-900">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {pendingUsersLoading ? (
+                        <tr>
+                          <td colSpan="7" className="px-6 py-6 text-sm text-gray-500">
+                            Loading pending users...
+                          </td>
+                        </tr>
+                      ) : pendingUsers.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="px-6 py-6 text-sm text-gray-500">
+                            No pending users.
+                          </td>
+                        </tr>
+                      ) : (
+                        pendingUsers.map((pending) => {
+                          const statusLabel = pending.is_expired ? "Expired" : "Pending";
+                          const statusClass = pending.is_expired
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-amber-100 text-amber-700";
+                          const resendKey = `resend-${pending.id}`;
+                          const deleteKey = `delete-${pending.id}`;
+                          const isResending = Boolean(pendingActions[resendKey]);
+                          const isDeleting = Boolean(pendingActions[deleteKey]);
+
+                          return (
+                            <tr key={pending.id} className="hover:bg-emerald-100/70 transition-colors">
+                              <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                                {pending.name}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {pending.email}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {formatDate(pending.created_at)}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {formatDate(pending.expires_at, true)}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">
+                                {pending.last_sent_at
+                                  ? `${formatDate(pending.last_sent_at, true)} (${pending.otp_count})`
+                                  : "Not sent"}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${statusClass}`}>
+                                  {statusLabel}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-wrap gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResendPendingUser(pending.id, pending.email)}
+                                    disabled={pending.is_expired || isResending}
+                                    className="px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                                  >
+                                    {isResending ? "Sending..." : "Resend OTP"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePendingUser(pending.id, pending.email)}
+                                    disabled={isDeleting}
+                                    className="px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                                  >
+                                    {isDeleting ? "Deleting..." : "Delete"}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
               <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-200 ring-2 ring-emerald-100">
                 <table className="w-full">

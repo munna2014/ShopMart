@@ -63,9 +63,14 @@ export function AuthProvider({ children }) {
       
       return { success: true, user };
     } catch (error) {
+      const status = error.response?.status;
+      const message =
+        status === 401
+          ? "Invalid email or password."
+          : error.response?.data?.message || "Login failed";
       return { 
         success: false, 
-        error: error.response?.data?.message || "Login failed" 
+        error: message
       };
     }
   };

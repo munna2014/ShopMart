@@ -36,11 +36,19 @@
             @endif
 
             <!-- OTP Code -->
-            <div style="text-align: center; margin: 40px 0;">
-                <div style="display: inline-block; padding: 20px 40px; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #ffffff; background: linear-gradient(135deg, #059669, #10b981); border-radius: 12px; box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);">
-                    {{ $otp }}
-                </div>
-            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+                <tr>
+                    <td align="center">
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 320px;">
+                            <tr>
+                                <td align="center" style="padding: 16px 12px; font-size: 28px; font-weight: bold; letter-spacing: 6px; line-height: 1.2; color: #ffffff; background: linear-gradient(135deg, #059669, #10b981); border-radius: 12px; box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3); font-family: 'Courier New', Courier, monospace;">
+                                    {{ $otp }}
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
 
             <!-- Instructions -->
             <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; border-left: 4px solid #059669; margin: 30px 0;">

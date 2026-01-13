@@ -16,7 +16,8 @@ class CustomerNotificationController extends Controller
         $userId = $request->user()->id;
 
         $notifications = CustomerNotification::where('user_id', $userId)
-            ->orderBy('created_at', 'desc')
+            ->select(['id', 'order_id', 'title', 'message', 'is_read', 'created_at'])
+            ->orderByDesc('created_at')
             ->limit(100)
             ->get();
 

@@ -56,6 +56,7 @@ export default function Page() {
 
   // Transform backend data to frontend view model
   const customerData = {
+    id: user.id,
     name: user.full_name || user.name || "Customer",
     email: user.email,
     phone: user.phone || "",

@@ -8,6 +8,7 @@ use App\Services\ImageUploadService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class ProductService
@@ -54,6 +55,9 @@ class ProductService
                 $product->update(['image_url' => $uniqueUrl]);
                 $product->refresh();
             }
+
+            // Clear products cache
+            $this->clearProductsCache();
 
             return $product;
         });
@@ -106,6 +110,9 @@ class ProductService
             // Update product
             $product->update($data);
 
+            // Clear products cache
+            $this->clearProductsCache();
+
             return $product->fresh();
         });
     }
@@ -123,7 +130,12 @@ class ProductService
                 $this->imageUploadService->deleteProductImage($product->image_url);
             }
 
-            return $product->delete();
+            $result = $product->delete();
+
+            // Clear products cache
+            $this->clearProductsCache();
+
+            return $result;
         });
     }
 
@@ -185,6 +197,26 @@ class ProductService
             'out_of_stock_products' => Product::where('stock_quantity', 0)->count(),
             'total_categories' => Category::where('is_active', true)->count(),
         ];
+    }
+
+    /**
+     * Clear all customer products cache entries
+     */
+    protected function clearProductsCache(): void
+    {
+        // Clear cache entries with the customer_products prefix
+        // Using Cache::flush() would clear everything, so we use tags or pattern matching
+        // For file/database cache drivers, we'll clear specific known keys
+        try {
+            // Clear common cache keys
+            Cache::forget('customer_products_50__');
+            Cache::forget('customer_products_50__all');
+            
+            // If using Redis or Memcached with tags, you could use:
+            // Cache::tags(['products'])->flush();
+        } catch (\Exception $e) {
+            // Silently fail if cache clearing fails
+        }
     }
 
     /**

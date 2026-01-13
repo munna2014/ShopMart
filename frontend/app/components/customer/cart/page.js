@@ -190,7 +190,7 @@ export default function CartPage() {
               </span>
             </Link>
             <Link
-              href="/components/customer"
+              href="/products"
               className="text-sm font-semibold text-green-700 hover:text-green-800 transition-colors"
             >
               Back to Shop
@@ -316,7 +316,7 @@ export default function CartPage() {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
-                    href="/components/customer?tab=shop"
+                    href="/products"
                     className="flex-1 text-center py-3 border border-green-200 text-green-700 rounded-xl font-semibold hover:bg-green-50 transition-all"
                   >
                     Continue Shopping

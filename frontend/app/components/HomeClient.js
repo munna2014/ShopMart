@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import { getPricing } from "@/lib/pricing";
+import DiscountCountdown from "@/components/DiscountCountdown";
+import ProductImage from "@/components/ProductImage";
+import NotificationDropdown from "@/components/NotificationDropdown";
 import {
   addGuestItem,
   getGuestCart,
@@ -19,9 +22,11 @@ export default function HomeClient() {
   const [currentImageSet, setCurrentImageSet] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationsFetched, setNotificationsFetched] = useState(false);
+  const [notificationsLoaded, setNotificationsLoaded] = useState(false);
   const [hasToken, setHasToken] = useState(false);
   const notificationsCacheKey = user?.id
     ? `customer_notifications_${user.id}`
@@ -110,13 +115,16 @@ export default function HomeClient() {
       if (cachedStats) {
         try {
           const parsed = JSON.parse(cachedStats);
+          // Immediately set stats from cache for instant display
           setStats(parsed);
           setStatsReady(true);
+          setDataLoading(false); // Set loading to false since we have cached data
         } catch (error) {
           console.error("Failed to parse cached stats:", error);
         }
       }
     }
+    // Fetch fresh data in background
     fetchHomeData();
   }, []);
 
@@ -132,6 +140,9 @@ export default function HomeClient() {
 
     try {
       const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed.notifications)) {
+        setNotifications(parsed.notifications);
+      }
       if (typeof parsed.unread_count === "number") {
         setUnreadNotifications(parsed.unread_count);
       }
@@ -141,37 +152,31 @@ export default function HomeClient() {
   }, [notificationsCacheKey]);
 
   const fetchNotifications = async ({ force = false } = {}) => {
-    if (notificationsLoading || (notificationsFetched && !force)) {
+    if (notificationsLoading || (!force && notificationsLoaded)) {
       return;
     }
-    setNotificationsLoading(true);
     try {
+      setNotificationsLoading(true);
       const response = await api.get("/notifications");
+      const nextNotifications = response.data.notifications || [];
       const nextUnreadCount = response.data.unread_count || 0;
+      setNotifications(nextNotifications);
       setUnreadNotifications(nextUnreadCount);
-      setNotificationsFetched(true);
+      setNotificationsLoaded(true);
 
       if (typeof window !== "undefined" && notificationsCacheKey) {
-        let nextCache = { unread_count: nextUnreadCount };
-        const cached = localStorage.getItem(notificationsCacheKey);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            nextCache = { ...parsed, unread_count: nextUnreadCount };
-          } catch (error) {
-            console.error("Failed to parse cached notifications:", error);
-          }
-        }
         localStorage.setItem(
           notificationsCacheKey,
           JSON.stringify({
-            ...nextCache,
+            notifications: nextNotifications,
+            unread_count: nextUnreadCount,
             cached_at: new Date().toISOString(),
           })
         );
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      setNotifications([]);
       setUnreadNotifications(0);
     } finally {
       setNotificationsLoading(false);
@@ -220,6 +225,35 @@ export default function HomeClient() {
       localStorage.removeItem("token");
       // Force page refresh as fallback
       window.location.reload();
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification) {
+      return;
+    }
+
+    if (!notification.is_read) {
+      try {
+        await api.patch(`/notifications/${notification.id}/read`);
+        setNotifications((prev) =>
+          prev.map((item) =>
+            item.id === notification.id
+              ? { ...item, is_read: true, read_at: new Date().toISOString() }
+              : item
+          )
+        );
+        setUnreadNotifications((prev) => Math.max(prev - 1, 0));
+      } catch (error) {
+        console.error("Error marking notification as read:", error);
+      }
+    }
+
+    // Navigate to customer page with appropriate tab
+    if (notification.order_id) {
+      router.push("/components/customer?tab=orders");
+    } else {
+      router.push("/components/customer?tab=notifications");
     }
   };
 
@@ -391,157 +425,169 @@ export default function HomeClient() {
               </span>
             </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8 flex-1 justify-center">
-              <a
-                href="#categories"
-                className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
-              >
-                Categories
-              </a>
-              <a
-                href="#featured"
-                className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
-              >
-                Products
-              </a>
-              <a
-                href="/components/about"
-                className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
-              >
-                About
-              </a>
+            {/* Desktop Navigation - Centered */}
+            <div className="hidden ml-25 md:flex items-center justify-center flex-1">
+              <div className="flex items-center gap-8">
+                <a
+                  href="#categories"
+                  className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
+                >
+                  Categories
+                </a>
+                <a
+                  href="#featured"
+                  className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
+                >
+                  Products
+                </a>
+                <a
+                  href="/components/about"
+                  className="text-gray-700  hover:text-green-600 font-semibold transition-colors"
+                >
+                  About
+                </a>
+              </div>
             </div>
 
-            {/* Desktop Search */}
-            <form
-              onSubmit={handleSearchSubmit}
-              className="hidden lg:flex items-center gap-2 w-56 xl:w-72"
-            >
-              <div className="flex-1 relative">
-                <svg
-                  className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  onFocus={() => setShowSearchSuggestions(true)}
-                  onBlur={() => {
-                    setTimeout(() => setShowSearchSuggestions(false), 150);
-                  }}
-                  placeholder="Search products..."
-                  className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 placeholder-gray-400"
-                />
-                {showSearchSuggestions && trimmedSearchQuery.length >= 1 && (
-                  <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden divide-y divide-gray-200">
-                    {searchSuggestionsLoading ? (
-                      <div className="px-3 py-2 text-xs text-gray-500">
-                        Searching...
-                      </div>
-                    ) : searchSuggestions.length > 0 ? (
-                      searchSuggestions.map((product) => (
-                        <button
-                          key={product.id}
-                          type="button"
-                          onClick={() => {
-                            setSearchQuery(product.name);
-                            setShowSearchSuggestions(false);
-                            router.push(
-                              `/products?search=${encodeURIComponent(product.name)}`
-                            );
-                          }}
-                          className="w-full flex items-center gap-3 text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors group"
-                        >
-                          <img
-                            src={
-                              product.image ||
-                              product.image_url ||
-                              "/images/default-product.svg"
-                            }
-                            alt={product.name}
-                            className="w-8 h-8 rounded-md object-cover border border-gray-200 bg-gray-100"
-                            onError={(event) => {
-                              event.currentTarget.src =
-                                "/images/default-product.svg";
-                            }}
-                          />
-                          <span className="font-semibold text-gray-900">
-                            {product.name}
-                          </span>
-                          <span className="ml-auto text-gray-300 group-hover:text-gray-500 transition-colors">
-                            <svg
-                              className="w-4 h-4"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                            >
-                              <path d="M7 17L17 7M7 7h10v10" />
-                            </svg>
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-xs text-gray-500">
-                        No products found.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              <button
-                type="submit"
-                className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-semibold hover:bg-gray-800 transition-colors"
+            {/* Right Side - Search and Auth */}
+            <div className="flex items-center gap-2">
+              {/* Desktop Search */}
+              <form
+                onSubmit={handleSearchSubmit}
+                className="hidden lg:flex items-center gap-2 w-56 xl:w-72"
               >
-                Search
-              </button>
-            </form>
+                <div className="flex-1 relative">
+                  <svg
+                    className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    onFocus={() => setShowSearchSuggestions(true)}
+                    onBlur={() => {
+                      setTimeout(() => setShowSearchSuggestions(false), 150);
+                    }}
+                    placeholder="Search products..."
+                    className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-gray-900 placeholder-gray-400"
+                  />
+                  {showSearchSuggestions && trimmedSearchQuery.length >= 1 && (
+                    <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden divide-y divide-gray-200">
+                      {searchSuggestionsLoading ? (
+                        <div className="px-3 py-2 text-xs text-gray-500">
+                          Searching...
+                        </div>
+                      ) : searchSuggestions.length > 0 ? (
+                        searchSuggestions.map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery(product.name);
+                              setShowSearchSuggestions(false);
+                              router.push(
+                                `/products?search=${encodeURIComponent(product.name)}`
+                              );
+                            }}
+                            className="w-full flex items-center gap-3 text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors group"
+                          >
+                            <ProductImage
+                              src={product.image_url || product.image}
+                              alt={product.name}
+                              className="w-8 h-8 rounded-md object-cover border border-gray-200 bg-gray-100"
+                            />
+                            <span className="font-semibold text-gray-900">
+                              {product.name}
+                            </span>
+                            <span className="ml-auto text-gray-300 group-hover:text-gray-500 transition-colors">
+                              <svg
+                                className="w-4 h-4"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M7 17L17 7M7 7h10v10" />
+                              </svg>
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-gray-500">
+                          No products found.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-semibold hover:bg-gray-800 transition-colors"
+                >
+                  Search
+                </button>
+              </form>
 
-            {/* Right Side - Auth Buttons */}
-            <div className="flex items-center gap-4 ml-auto">
+              {/* Auth Section */}
               {loading && !showCustomerNav ? null : showCustomerNav ? (
                 <>
-                  <button
-                    onClick={() => router.push("/components/customer?tab=notifications")}
-                    className="relative p-2 text-green-600 hover:text-green-700 transition-colors"
-                    aria-label="Notifications"
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path
-                        d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    {unreadNotifications > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
-                        {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                      </span>
-                    )}
-                  </button>
                   <div className="relative">
                     <button
-                      onClick={() => setMenuOpen((prev) => !prev)}
+                      onClick={() => {
+                        setNotificationDropdownOpen((prev) => !prev);
+                        setMenuOpen(false);
+                      }}
+                      className="relative p-2 text-green-600 hover:text-green-700 transition-colors"
+                      aria-label="Notifications"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path
+                          d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      {unreadNotifications > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                        </span>
+                      )}
+                    </button>
+                    <NotificationDropdown
+                      notifications={notifications}
+                      unreadCount={unreadNotifications}
+                      onNotificationClick={handleNotificationClick}
+                      onSeeAll={() => router.push("/components/customer?tab=notifications")}
+                      isOpen={notificationDropdownOpen}
+                      onToggle={() => setNotificationDropdownOpen((prev) => !prev)}
+                      onClose={() => setNotificationDropdownOpen(false)}
+                    />
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        setMenuOpen((prev) => !prev);
+                        setNotificationDropdownOpen(false);
+                      }}
                       className="p-2 text-green-600 hover:text-green-700 transition-colors"
                       aria-label="Open menu"
                       aria-expanded={menuOpen}
@@ -574,11 +620,23 @@ export default function HomeClient() {
                           Orders
                         </Link>
                         <Link
-                          href="/components/customer?tab=shop"
+                          href="/components/customer?tab=notifications"
+                          className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <span>Notifications</span>
+                          {unreadNotifications > 0 && (
+                            <span className="min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                              {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                            </span>
+                          )}
+                        </Link>
+                        <Link
+                          href="/products"
                           className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           onClick={() => setMenuOpen(false)}
                         >
-                          Shop
+                          Products
                         </Link>
                         <Link
                           href="/components/customer?tab=addresses"
@@ -748,14 +806,14 @@ export default function HomeClient() {
             <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-12">
               <div className="text-center">
                 <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                  {dataLoading && !statsReady ? "..." : stats.total_products || "0"}
+                  {stats.total_products || "0"}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">Products</div>
               </div>
               <div className="hidden sm:block w-px h-12 bg-gray-300"></div>
               <div className="text-center">
                 <div className="text-2xl sm:text-3xl font-bold text-gray-900">
-                  {dataLoading && !statsReady ? "..." : stats.total_customers || "0"}
+                  {stats.total_customers || "0"}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">
                   Happy Customers
@@ -951,7 +1009,7 @@ export default function HomeClient() {
                 return (
               <div
                 key={index}
-                className="group bg-gray rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+                className="group bg-gray rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 flex flex-col h-full"
               >
                 {product.badge && (
                   <div
@@ -965,20 +1023,17 @@ export default function HomeClient() {
 
                 <Link
                   href={`/customer_product_details/${product.id}`}
-                  className="relative aspect-[4/3] overflow-hidden block"
+                  className="relative aspect-[4/3] overflow-hidden block flex-shrink-0"
                 >
-                  <img
-                    src={product.image || product.image_url || '/images/default-product.svg'}
+                  <ProductImage
+                    src={product.image_url || product.image}
                     alt={product.name}
                     className="w-90 h-100 object-cover group-hover:scale-110 transition-transform duration-300"
-                    onError={(e) => {
-                      e.target.src = '/images/default-product.svg';
-                    }}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                 </Link>
 
-                <div className="p-4">
+                <div className="p-4 flex flex-col flex-grow">
                   <div className="mb-2">
                     {product.category && (
                       <span className="text-xs text-green-600 font-medium uppercase tracking-wide">
@@ -988,7 +1043,7 @@ export default function HomeClient() {
                   </div>
                   <Link
                     href={`/customer_product_details/${product.id}`}
-                    className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 hover:text-green-700 transition-colors block"
+                    className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 hover:text-green-700 transition-colors block"
                   >
                     {product.name}
                   </Link>
@@ -1003,79 +1058,86 @@ export default function HomeClient() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-2xl font-bold text-gray-900">
-                      ${pricing.discountedPrice.toFixed(2)}
-                    </span>
-                    {showDiscount ? (
-                      <span className="text-lg text-gray-400 line-through">
-                        ${pricing.basePrice.toFixed(2)}
+                  <div className="mt-auto">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl font-bold text-gray-900">
+                        ${pricing.discountedPrice.toFixed(2)}
                       </span>
-                    ) : null}
-                    {showDiscount ? (
-                      <span className="text-xs font-semibold text-rose-600">
-                        -{pricing.discountPercent}%
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm text-gray-600">
-                      {availableStock > 0
-                        ? `${availableStock} in stock`
-                        : 'Out of stock'}
-                    </span>
-                    {product.inStock === false && (
-                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                        Out of Stock
-                      </span>
-                    )}
-                  </div>
-
-                  {cartItem ? (
-                    <div className="flex items-center justify-between gap-3">
-                      <button
-                        onClick={() =>
-                          updateCartQuantity(product.id, cartQuantity - 1)
-                        }
-                        className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200"
-                      >
-                        -
-                      </button>
-                      <span className="font-semibold text-gray-900">
-                        {cartQuantity}
-                      </span>
-                      <button
-                        onClick={() =>
-                          updateCartQuantity(product.id, cartQuantity + 1)
-                        }
-                        disabled={atStockLimit}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          atStockLimit
-                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                            : "bg-green-600 text-white hover:bg-green-500"
-                        }`}
-                      >
-                        +
-                      </button>
+                      {showDiscount ? (
+                        <span className="text-lg text-gray-400 line-through">
+                          ${pricing.basePrice.toFixed(2)}
+                        </span>
+                      ) : null}
+                      {showDiscount ? (
+                        <span className="text-xs font-semibold text-rose-600">
+                          -{pricing.discountPercent}%
+                        </span>
+                      ) : null}
                     </div>
-                  ) : (
-                    <button 
-                      onClick={() => handleAddToCart(product)}
-                      className={`w-full py-3 rounded-xl font-semibold transition-all ${
-                        product.inStock !== false && !addingToCart[product.id]
-                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg hover:scale-105' 
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                      disabled={product.inStock === false || addingToCart[product.id]}
-                    >
-                      {product.inStock !== false
-                        ? addingToCart[product.id]
-                          ? "Adding..."
+                    <div className="h-8 mb-2">
+                      {showDiscount && product.discount_ends_at ? (
+                        <DiscountCountdown endDate={product.discount_ends_at} />
+                      ) : null}
+                    </div>
+
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-gray-600">
+                        {availableStock > 0
+                          ? `${availableStock} in stock`
+                          : 'Out of stock'}
+                      </span>
+                      {product.inStock === false && (
+                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                          Out of Stock
+                        </span>
+                      )}
+                    </div>
+
+                    {cartItem ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          onClick={() =>
+                            updateCartQuantity(product.id, cartQuantity - 1)
+                          }
+                          className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200"
+                        >
+                          -
+                        </button>
+                        <span className="font-semibold text-gray-900">
+                          {cartQuantity}
+                        </span>
+                        <button
+                          onClick={() =>
+                            updateCartQuantity(product.id, cartQuantity + 1)
+                          }
+                          disabled={atStockLimit}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            atStockLimit
+                              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                              : "bg-green-600 text-white hover:bg-green-500"
+                          }`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => handleAddToCart(product)}
+                        className={`w-full py-3 rounded-xl font-semibold transition-all ${
+                          product.inStock !== false && !addingToCart[product.id]
+                            ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg hover:scale-105' 
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                        disabled={product.inStock === false || addingToCart[product.id]}
+                      >
+                        {product.inStock !== false
+                          ? addingToCart[product.id]
+                            ? "Adding..."
                           : "Add to Cart"
                         : "Out of Stock"}
-                    </button>
-                  )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
                 );

@@ -7,6 +7,8 @@ import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/axios";
 import { addGuestItem, getGuestCart, updateGuestItem } from "@/lib/guestCart";
 import { getPricing } from "@/lib/pricing";
+import DiscountCountdown from "@/components/DiscountCountdown";
+import ProductImage from "@/components/ProductImage";
 
 export default function ProductsPage() {
   const { user, isAuthenticated } = useAuth();
@@ -16,7 +18,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [sortBy, setSortBy] = useState('name');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -98,28 +101,36 @@ export default function ProductsPage() {
       filtered = filtered.filter(product => product.category === selectedCategory);
     }
 
-    // Sort products
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'price-low':
-          return parseFloat(a.price.replace('$', '')) - parseFloat(b.price.replace('$', ''));
-        case 'price-high':
-          return parseFloat(b.price.replace('$', '')) - parseFloat(a.price.replace('$', ''));
-        case 'newest':
-          return b.id - a.id; // Assuming higher ID means newer
-        default:
-          return 0;
+    // Filter by price range
+    if (minPrice !== '') {
+      const min = parseFloat(minPrice);
+      if (!isNaN(min)) {
+        filtered = filtered.filter(product => {
+          const pricing = getPricing(product);
+          return pricing.discountedPrice >= min;
+        });
       }
-    });
+    }
+
+    if (maxPrice !== '') {
+      const max = parseFloat(maxPrice);
+      if (!isNaN(max)) {
+        filtered = filtered.filter(product => {
+          const pricing = getPricing(product);
+          return pricing.discountedPrice <= max;
+        });
+      }
+    }
+
+    // Sort products by name (A-Z)
+    filtered.sort((a, b) => a.name.localeCompare(b.name));
 
     setFilteredProducts(filtered);
-  }, [products, searchTerm, selectedCategory, sortBy]);
+  }, [products, searchTerm, selectedCategory, minPrice, maxPrice]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCategory, sortBy]);
+  }, [searchTerm, selectedCategory, minPrice, maxPrice]);
 
   useEffect(() => {
     const trimmed = searchTerm.trim();
@@ -383,18 +394,10 @@ export default function ProductsPage() {
                           }}
                           className="w-full flex items-center gap-3 text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors group"
                         >
-                          <img
-                            src={
-                              product.image ||
-                              product.image_url ||
-                              "/images/default-product.svg"
-                            }
+                          <ProductImage
+                            src={product.image_url || product.image}
                             alt={product.name}
                             className="w-8 h-8 rounded-md object-cover border border-gray-200 bg-gray-100"
-                            onError={(event) => {
-                              event.currentTarget.src =
-                                "/images/default-product.svg";
-                            }}
                           />
                           <span className="font-semibold text-gray-900">
                             {product.name}
@@ -444,21 +447,30 @@ export default function ProductsPage() {
               </select>
             </div>
 
-            {/* Sort */}
+            {/* Price Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sort By
+                Price Range
               </label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none text-sm"
-              >
-                <option value="name">Name (A-Z)</option>
-                <option value="price-low">Price (Low to High)</option>
-                <option value="price-high">Price (High to Low)</option>
-                <option value="newest">Newest First</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  placeholder="Min"
+                  min="0"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none text-sm"
+                />
+                <span className="text-gray-400">-</span>
+                <input
+                  type="number"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  placeholder="Max"
+                  min="0"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent outline-none text-sm"
+                />
+              </div>
             </div>
           </div>
 
@@ -468,6 +480,7 @@ export default function ProductsPage() {
               Showing {pageStart} to {pageEnd} of {filteredProducts.length} products
               {searchTerm && ` for "${searchTerm}"`}
               {selectedCategory && ` in "${selectedCategory}"`}
+              {(minPrice || maxPrice) && ` | Price: ${minPrice || '0'} - ${maxPrice || '∞'}`}
             </p>
           </div>
         </div>
@@ -509,11 +522,13 @@ export default function ProductsPage() {
                   ? "Try adjusting your search or filter criteria"
                   : "No products are available at the moment"}
               </p>
-              {(searchTerm || selectedCategory) && (
+              {(searchTerm || selectedCategory || minPrice || maxPrice) && (
                 <button
                   onClick={() => {
                     setSearchTerm('');
                     setSelectedCategory('');
+                    setMinPrice('');
+                    setMaxPrice('');
                   }}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
@@ -545,7 +560,7 @@ export default function ProductsPage() {
               return (
                 <div
                   key={product.id}
-                  className="group bg-white rounded-lg shadow-sm border hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                  className="group bg-white rounded-lg shadow-sm border hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col h-full"
                 >
                 {product.badge && (
                   <div
@@ -559,19 +574,16 @@ export default function ProductsPage() {
 
                 <Link
                   href={`/customer_product_details/${product.id}`}
-                  className="relative aspect-[4/3] overflow-hidden rounded-t-lg block"
+                  className="relative aspect-[4/3] overflow-hidden rounded-t-lg block flex-shrink-0"
                 >
-                  <img
-                    src={product.image || product.image_url || '/images/default-product.svg'}
+                  <ProductImage
+                    src={product.image_url || product.image}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      e.target.src = '/images/default-product.svg';
-                    }}
                   />
                 </Link>
 
-                <div className="p-4">
+                <div className="p-4 flex flex-col flex-grow">
                   {product.category && (
                     <span className="text-xs text-green-600 font-medium uppercase tracking-wide">
                       {product.category}
@@ -580,16 +592,14 @@ export default function ProductsPage() {
                   
                   <Link
                     href={`/customer_product_details/${product.id}`}
-                    className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 hover:text-green-700 transition-colors block"
+                    className="text-lg font-semibold text-gray-900 mb-2 line-clamp-1 hover:text-green-700 transition-colors block"
                   >
                     {product.name}
                   </Link>
 
-                  {product.description && (
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                      {product.description}
-                    </p>
-                  )}
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2 min-h-[40px]">
+                    {product.description || "No description available"}
+                  </p>
 
                   <div className="flex items-center gap-1 mb-3">
                     <div className="flex text-yellow-400">
@@ -601,71 +611,78 @@ export default function ProductsPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl font-bold text-gray-900">
-                      ${pricing.discountedPrice.toFixed(2)}
-                    </span>
-                    {showDiscount ? (
-                      <span className="text-xs text-gray-500 line-through">
-                        ${pricing.basePrice.toFixed(2)}
+                  <div className="mt-auto">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl font-bold text-gray-900">
+                        ${pricing.discountedPrice.toFixed(2)}
                       </span>
-                    ) : null}
-                    {showDiscount ? (
-                      <span className="text-xs font-semibold text-rose-600">
-                        -{pricing.discountPercent}%
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm text-gray-600">
-                      {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-                    </span>
-                  </div>
-
-                  {cartItem ? (
-                    <div className="flex items-center justify-between gap-3">
-                      <button
-                        onClick={() =>
-                          updateCartQuantity(product.id, cartQuantity - 1)
-                        }
-                        className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200"
-                      >
-                        -
-                      </button>
-                      <span className="font-semibold text-gray-900">
-                        {cartQuantity}
-                      </span>
-                      <button
-                        onClick={() =>
-                          updateCartQuantity(product.id, cartQuantity + 1)
-                        }
-                        disabled={atStockLimit}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          atStockLimit
-                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                            : "bg-green-600 text-white hover:bg-green-500"
-                        }`}
-                      >
-                        +
-                      </button>
+                      {showDiscount ? (
+                        <span className="text-xs text-gray-500 line-through">
+                          ${pricing.basePrice.toFixed(2)}
+                        </span>
+                      ) : null}
+                      {showDiscount ? (
+                        <span className="text-xs font-semibold text-rose-600">
+                          -{pricing.discountPercent}%
+                        </span>
+                      ) : null}
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => handleAddToCart(product)}
-                      className={`w-full py-2 rounded-lg font-medium transition-all ${
-                        product.inStock !== false && !addingToCart[product.id]
-                          ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-md'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                      disabled={product.inStock === false || addingToCart[product.id]}
-                    >
-                      {product.inStock !== false
-                        ? addingToCart[product.id]
-                          ? 'Adding...'
-                          : 'Add to Cart'
-                        : 'Out of Stock'}
-                    </button>
-                  )}
+                    <div className="h-8 mb-2">
+                      {showDiscount && product.discount_ends_at ? (
+                        <DiscountCountdown endDate={product.discount_ends_at} />
+                      ) : null}
+                    </div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-gray-600">
+                        {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                      </span>
+                    </div>
+
+                    {cartItem ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          onClick={() =>
+                            updateCartQuantity(product.id, cartQuantity - 1)
+                          }
+                          className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200"
+                        >
+                          -
+                        </button>
+                        <span className="font-semibold text-gray-900">
+                          {cartQuantity}
+                        </span>
+                        <button
+                          onClick={() =>
+                            updateCartQuantity(product.id, cartQuantity + 1)
+                          }
+                          disabled={atStockLimit}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            atStockLimit
+                              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                              : "bg-green-600 text-white hover:bg-green-500"
+                          }`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleAddToCart(product)}
+                        className={`w-full py-2 rounded-lg font-medium transition-all ${
+                          product.inStock !== false && !addingToCart[product.id]
+                            ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-md'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                        disabled={product.inStock === false || addingToCart[product.id]}
+                      >
+                        {product.inStock !== false
+                          ? addingToCart[product.id]
+                            ? 'Adding...'
+                            : 'Add to Cart'
+                          : 'Out of Stock'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 </div>
               );

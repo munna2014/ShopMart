@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/axios";
 import * as XLSX from "xlsx";
+import AdminProductImage from "./AdminProductImage";
 
 
 export default function AdminDashboard() {
@@ -1547,7 +1548,7 @@ export default function AdminDashboard() {
                             <div className="flex items-center gap-3">
                               <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden">
                                 {product.image_url ? (
-                                  <img
+                                  <AdminProductImage
                                     src={product.image_url}
                                     alt={product.name}
                                     className="w-full h-full object-cover"
@@ -1846,7 +1847,7 @@ export default function AdminDashboard() {
                             <div className="flex items-center gap-4">
                               <div className="w-12 h-12 bg-gradient-to-br from-emerald-200 to-sky-200 rounded-lg flex items-center justify-center overflow-hidden ring-2 ring-emerald-300">
                                 {product.imageUrl ? (
-                                  <img
+                                  <AdminProductImage
                                     src={product.imageUrl}
                                     alt={product.name}
                                     className="w-full h-full object-cover"
@@ -2635,7 +2636,7 @@ export default function AdminDashboard() {
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-600 transition-colors">
                   {imagePreview || productForm.image_url.trim() ? (
                     <div className="relative">
-                      <img
+                      <AdminProductImage
                         src={imagePreview || productForm.image_url.trim()}
                         alt="Preview"
                         className="max-h-48 mx-auto rounded-lg"

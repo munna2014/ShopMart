@@ -267,7 +267,7 @@ export default function ProductDetailsPage({ params }) {
               </span>
             </Link>
             <Link
-              href="/components/customer?tab=shop"
+              href="/products"
               className="text-sm font-semibold text-green-700 hover:text-green-800 transition-colors"
             >
               Back to Products
@@ -300,7 +300,7 @@ export default function ProductDetailsPage({ params }) {
               This product may no longer be available.
             </p>
             <Link
-              href="/components/customer?tab=shop"
+              href="/products"
               className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
             >
               Back to Products
@@ -633,7 +633,7 @@ export default function ProductDetailsPage({ params }) {
                   : "Out of Stock"}
               </button>
               <Link
-                href="/components/customer?tab=shop"
+                href="/products"
                 className="flex-1 px-6 py-3 border border-green-200 text-green-700 rounded-xl font-semibold text-center hover:bg-green-50 transition-all"
               >
                 Back to Products

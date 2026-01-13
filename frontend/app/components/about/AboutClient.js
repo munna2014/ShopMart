@@ -1,14 +1,90 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import api from "@/lib/axios";
+import NotificationDropdown from "@/components/NotificationDropdown";
 
-export default function AboutClient({ isLoggedIn }) {
+export default function AboutClient() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, isAuthenticated, user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState("mission");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsLoaded, setNotificationsLoaded] = useState(false);
+  
+  const notificationsCacheKey = user?.id
+    ? `customer_notifications_${user.id}`
+    : null;
+
+  // Load cached notifications
+  useEffect(() => {
+    if (typeof window === "undefined" || !notificationsCacheKey) {
+      return;
+    }
+
+    const cached = localStorage.getItem(notificationsCacheKey);
+    if (!cached) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed.notifications)) {
+        setNotifications(parsed.notifications);
+      }
+      if (typeof parsed.unread_count === "number") {
+        setUnreadNotifications(parsed.unread_count);
+      }
+    } catch (error) {
+      console.error("Failed to parse cached notifications:", error);
+    }
+  }, [notificationsCacheKey]);
+
+  // Fetch notifications
+  const fetchNotifications = async ({ force = false } = {}) => {
+    if (notificationsLoading || (!force && notificationsLoaded)) {
+      return;
+    }
+    try {
+      setNotificationsLoading(true);
+      const response = await api.get("/notifications");
+      const nextNotifications = response.data.notifications || [];
+      const nextUnreadCount = response.data.unread_count || 0;
+      setNotifications(nextNotifications);
+      setUnreadNotifications(nextUnreadCount);
+      setNotificationsLoaded(true);
+
+      if (typeof window !== "undefined" && notificationsCacheKey) {
+        localStorage.setItem(
+          notificationsCacheKey,
+          JSON.stringify({
+            notifications: nextNotifications,
+            unread_count: nextUnreadCount,
+            cached_at: new Date().toISOString(),
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      setNotifications([]);
+      setUnreadNotifications(0);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  // Fetch notifications when authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated, user]);
 
   const handleSignOut = async () => {
     try {
@@ -26,12 +102,41 @@ export default function AboutClient({ isLoggedIn }) {
     }
   };
 
+  const handleNotificationClick = async (notification) => {
+    if (!notification) {
+      return;
+    }
+
+    if (!notification.is_read) {
+      try {
+        await api.patch(`/notifications/${notification.id}/read`);
+        setNotifications((prev) =>
+          prev.map((item) =>
+            item.id === notification.id
+              ? { ...item, is_read: true, read_at: new Date().toISOString() }
+              : item
+          )
+        );
+        setUnreadNotifications((prev) => Math.max(prev - 1, 0));
+      } catch (error) {
+        console.error("Error marking notification as read:", error);
+      }
+    }
+
+    // Navigate to customer page with appropriate tab
+    if (notification.order_id) {
+      router.push("/components/customer?tab=orders");
+    } else {
+      router.push("/components/customer?tab=notifications");
+    }
+  };
+
   return (
     <>
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="flex items-center gap-4 h-16 md:h-20">
             <Link href="/" className="flex items-center gap-3 group">
               <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg
@@ -57,39 +162,164 @@ export default function AboutClient({ isLoggedIn }) {
               </span>
             </Link>
 
-            <div className="flex items-center gap-4">
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-8 flex-1 justify-center">
               <Link
                 href="/"
-                className="text-gray-700 hover:text-green-600 font-medium transition-colors"
+                className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
               >
                 Home
               </Link>
-              {isLoggedIn ? (
+              <Link
+                href="/products"
+                className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
+              >
+                Products
+              </Link>
+              <Link
+                href="/components/about"
+                className="text-green-600 font-semibold"
+              >
+                About
+              </Link>
+            </div>
+
+            {/* Right Side - Auth Buttons */}
+            <div className="flex items-center gap-4 ml-auto">
+              {loading ? null : isAuthenticated && user ? (
                 <>
-                  <Link
-                    href="/components/customer"
-                    className="px-4 py-2 text-green-600 font-medium transition-colors"
-                  >
-                    Profile
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all"
-                  >
-                    Sign Out
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        setNotificationDropdownOpen((prev) => !prev);
+                        setMenuOpen(false);
+                      }}
+                      className="relative p-2 text-green-600 hover:text-green-700 transition-colors"
+                      aria-label="Notifications"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path
+                          d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9m-4.27 13a2 2 0 01-3.46 0"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      {unreadNotifications > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                        </span>
+                      )}
+                    </button>
+                    <NotificationDropdown
+                      notifications={notifications}
+                      unreadCount={unreadNotifications}
+                      onNotificationClick={handleNotificationClick}
+                      onSeeAll={() => router.push("/components/customer?tab=notifications")}
+                      isOpen={notificationDropdownOpen}
+                      onToggle={() => setNotificationDropdownOpen((prev) => !prev)}
+                      onClose={() => setNotificationDropdownOpen(false)}
+                    />
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={() => {
+                        setMenuOpen((prev) => !prev);
+                        setNotificationDropdownOpen(false);
+                      }}
+                      className="p-2 text-green-600 hover:text-green-700 transition-colors"
+                      aria-label="Open menu"
+                      aria-expanded={menuOpen}
+                      aria-haspopup="menu"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    {menuOpen && (
+                      <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                        <Link
+                          href="/components/customer?tab=profile"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Personal Info
+                        </Link>
+                        <Link
+                          href="/components/customer?tab=orders"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Orders
+                        </Link>
+                        <Link
+                          href="/components/customer?tab=notifications"
+                          className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <span>Notifications</span>
+                          {unreadNotifications > 0 && (
+                            <span className="min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                              {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                            </span>
+                          )}
+                        </Link>
+                        <Link
+                          href="/products"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Products
+                        </Link>
+                        <Link
+                          href="/components/customer?tab=addresses"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Addresses
+                        </Link>
+                        <Link
+                          href="/components/customer?tab=settings"
+                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Settings
+                        </Link>
+                        <button
+                          onClick={() => {
+                            setMenuOpen(false);
+                            handleSignOut();
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
                   <Link
                     href="/login"
-                    className="px-4 py-2 text-gray-700 hover:text-green-600 font-medium transition-colors"
+                    className="hidden sm:block px-6 py-2.5 text-green-600 font-semibold hover:text-green-700 transition-colors"
                   >
                     Sign In
                   </Link>
                   <Link
                     href="/register"
-                    className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all"
+                    className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
                   >
                     Sign Up
                   </Link>
@@ -101,7 +331,7 @@ export default function AboutClient({ isLoggedIn }) {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-28 md:pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
           <div className="absolute top-0 left-0 w-96 h-96 bg-green-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
           <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>

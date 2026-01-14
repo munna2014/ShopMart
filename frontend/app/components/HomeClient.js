@@ -77,23 +77,94 @@ export default function HomeClient() {
   // Fetch home page data
   const fetchHomeData = async () => {
     try {
-      setDataLoading(true);
+      // Check cache first for categories and products
+      const categoriesCache = localStorage.getItem("home_categories_cache");
+      const productsCache = localStorage.getItem("home_featured_products_cache");
       
-      // Fetch stats, categories, and featured products
-      const [statsRes, categoriesRes, productsRes] = await Promise.all([
-        api.get('/home/stats'),
-        api.get('/home/categories'),
-        api.get('/home/featured-products')
-      ]);
+      let shouldFetchCategories = true;
+      let shouldFetchProducts = true;
+      
+      // Load categories from cache
+      if (categoriesCache) {
+        try {
+          const parsed = JSON.parse(categoriesCache);
+          const cacheAge = Date.now() - new Date(parsed.cached_at).getTime();
+          setCategories(parsed.data || []);
+          console.log("Categories loaded from cache:", { count: parsed.data?.length, cacheAge: Math.round(cacheAge / 1000) + "s" });
+          // Cache valid for 10 minutes
+          if (cacheAge < 600000) {
+            shouldFetchCategories = false;
+          }
+        } catch (e) {
+          console.error("Failed to parse cached categories:", e);
+        }
+      }
+      
+      // Load featured products from cache
+      if (productsCache) {
+        try {
+          const parsed = JSON.parse(productsCache);
+          const cacheAge = Date.now() - new Date(parsed.cached_at).getTime();
+          setFeaturedProducts(parsed.data || []);
+          console.log("Featured products loaded from cache:", { count: parsed.data?.length, cacheAge: Math.round(cacheAge / 1000) + "s" });
+          // Cache valid for 5 minutes
+          if (cacheAge < 300000) {
+            shouldFetchProducts = false;
+          }
+        } catch (e) {
+          console.error("Failed to parse cached featured products:", e);
+        }
+      }
+      
+      // If both are cached and fresh, skip loading state
+      if (!shouldFetchCategories && !shouldFetchProducts) {
+        setDataLoading(false);
+      } else {
+        setDataLoading(true);
+      }
+      
+      // Fetch fresh data only for what's needed
+      const requests = [api.get('/home/stats')];
+      if (shouldFetchCategories) requests.push(api.get('/home/categories'));
+      if (shouldFetchProducts) requests.push(api.get('/home/featured-products'));
+      
+      const responses = await Promise.all(requests);
+      
+      let statsRes = responses[0];
+      let categoriesRes = shouldFetchCategories ? responses[1] : null;
+      let productsRes = shouldFetchProducts ? (shouldFetchCategories ? responses[2] : responses[1]) : null;
       
       const nextStats = statsRes.data || { total_products: 0, total_customers: 0, total_orders: 0 };
       setStats(nextStats);
       setStatsReady(true);
       if (typeof window !== "undefined") {
-        localStorage.setItem("home_stats_cache", JSON.stringify(nextStats));
+        localStorage.setItem("home_stats_cache", JSON.stringify({
+          ...nextStats,
+          cached_at: new Date().toISOString()
+        }));
       }
-      setCategories(categoriesRes.data.categories || []);
-      setFeaturedProducts(productsRes.data.products || []);
+      
+      // Update categories if fetched
+      if (categoriesRes) {
+        const categoriesData = categoriesRes.data.categories || [];
+        setCategories(categoriesData);
+        localStorage.setItem("home_categories_cache", JSON.stringify({
+          data: categoriesData,
+          cached_at: new Date().toISOString()
+        }));
+        console.log("Categories cached:", { count: categoriesData.length });
+      }
+      
+      // Update featured products if fetched
+      if (productsRes) {
+        const productsData = productsRes.data.products || [];
+        setFeaturedProducts(productsData);
+        localStorage.setItem("home_featured_products_cache", JSON.stringify({
+          data: productsData,
+          cached_at: new Date().toISOString()
+        }));
+        console.log("Featured products cached:", { count: productsData.length });
+      }
     } catch (error) {
       console.error('Error fetching home data:', error);
       // Set fallback data on error
@@ -109,19 +180,49 @@ export default function HomeClient() {
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
+      // Load stats from cache
       const cachedStats = localStorage.getItem("home_stats_cache");
       const token = localStorage.getItem("token");
       setHasToken(Boolean(token));
+      
       if (cachedStats) {
         try {
           const parsed = JSON.parse(cachedStats);
           // Immediately set stats from cache for instant display
           setStats(parsed);
           setStatsReady(true);
-          setDataLoading(false); // Set loading to false since we have cached data
         } catch (error) {
           console.error("Failed to parse cached stats:", error);
         }
+      }
+      
+      // Load categories from cache
+      const cachedCategories = localStorage.getItem("home_categories_cache");
+      if (cachedCategories) {
+        try {
+          const parsed = JSON.parse(cachedCategories);
+          setCategories(parsed.data || []);
+          console.log("Categories loaded immediately from cache:", parsed.data?.length);
+        } catch (error) {
+          console.error("Failed to parse cached categories:", error);
+        }
+      }
+      
+      // Load featured products from cache
+      const cachedProducts = localStorage.getItem("home_featured_products_cache");
+      if (cachedProducts) {
+        try {
+          const parsed = JSON.parse(cachedProducts);
+          setFeaturedProducts(parsed.data || []);
+          console.log("Featured products loaded immediately from cache:", parsed.data?.length);
+        } catch (error) {
+          console.error("Failed to parse cached featured products:", error);
+        }
+      }
+      
+      // If we have all cached data, set loading to false
+      if (cachedStats && cachedCategories && cachedProducts) {
+        setDataLoading(false);
       }
     }
     // Fetch fresh data in background
@@ -426,7 +527,7 @@ export default function HomeClient() {
             </Link>
 
             {/* Desktop Navigation - Centered */}
-            <div className="hidden ml-25 md:flex items-center justify-center flex-1">
+            <div className="hidden ml-30 md:flex items-center justify-center flex-1">
               <div className="flex items-center gap-8">
                 <a
                   href="#categories"

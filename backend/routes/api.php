@@ -18,6 +18,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     require __DIR__ . '/user/orders.php';
     require __DIR__ . '/user/notifications.php';
     require __DIR__ . '/user/cart.php';
+    require __DIR__ . '/user/loyalty.php';
     Route::post('/products/{product}/reviews', [ReviewController::class, 'store']);
     Route::put('/reviews/{review}', [ReviewController::class, 'update']);
     Route::delete('/reviews/{review}', [ReviewController::class, 'destroy']);

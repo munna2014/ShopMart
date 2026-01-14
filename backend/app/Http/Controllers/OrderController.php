@@ -95,14 +95,30 @@ class OrderController extends Controller
         $validated = $request->validate([
             'address_id' => 'required|integer',
             'payment_method' => 'nullable|string|in:COD,STRIPE',
+            'loyalty_points_to_use' => 'nullable|integer|min:0',
         ]);
 
         $paymentMethod = $validated['payment_method'] ?? 'COD';
+        $loyaltyPointsToUse = $validated['loyalty_points_to_use'] ?? 0;
 
         try {
-            $order = DB::transaction(function () use ($validated, $request, $paymentMethod) {
+            $order = DB::transaction(function () use ($validated, $request, $paymentMethod, $loyaltyPointsToUse) {
                 $user = $request->user();
                 $paymentStatus = $paymentMethod == 'STRIPE' ? 'PENDING' : 'UNPAID';
+                
+                // Validate and calculate loyalty points discount
+                $loyaltyDiscount = 0;
+                if ($loyaltyPointsToUse > 0) {
+                    $loyaltyService = app(\App\Services\LoyaltyService::class);
+                    try {
+                        $redemptionInfo = $loyaltyService->redeemPoints($user, $loyaltyPointsToUse);
+                        $loyaltyDiscount = $redemptionInfo['discount_amount'];
+                    } catch (\Exception $e) {
+                        throw ValidationException::withMessages([
+                            'loyalty_points' => [$e->getMessage()],
+                        ]);
+                    }
+                }
 
                 $address = UserAddress::where('user_id', $user->id)
                     ->where('id', $validated['address_id'])
@@ -175,6 +191,20 @@ class OrderController extends Controller
                 }
 
                 $order->update(['total_amount' => $total]);
+                
+                // Apply loyalty points discount if any
+                if ($loyaltyPointsToUse > 0 && $loyaltyDiscount > 0) {
+                    $finalTotal = max(0, $total - $loyaltyDiscount);
+                    $order->update([
+                        'total_amount' => $finalTotal,
+                        'loyalty_points_used' => $loyaltyPointsToUse,
+                        'discount_from_points' => $loyaltyDiscount,
+                    ]);
+                    
+                    // Apply the redemption
+                    $loyaltyService = app(\App\Services\LoyaltyService::class);
+                    $loyaltyService->applyPointsToOrder($user, $loyaltyPointsToUse);
+                }
 
                 // Mark cart as checked out and clear items
                 $cart->markAsCheckedOut();
@@ -568,6 +598,12 @@ class OrderController extends Controller
         if ($statusChanged && $order->status === 'DELIVERED') {
             if ($order->user && $order->user->email) {
                 Mail::to($order->user->email)->queue(new OrderDelivered($order));
+            }
+            
+            // Award loyalty points when order is delivered
+            if ($order->loyalty_points_earned == 0) {
+                $loyaltyService = app(\App\Services\LoyaltyService::class);
+                $loyaltyService->awardPoints($order->user, $order);
             }
         }
 

@@ -63,14 +63,84 @@ export default function ProductsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true);
-        const [productsRes, categoriesRes] = await Promise.all([
-          api.get('/home/featured-products?limit=100'), // Get more products
-          api.get('/categories')
-        ]);
+        // Check cache first
+        const productsCache = localStorage.getItem("products_page_cache");
+        const categoriesCache = localStorage.getItem("products_categories_cache");
         
-        setProducts(productsRes.data.products || []);
-        setCategories(categoriesRes.data.categories || []);
+        let shouldFetchProducts = true;
+        let shouldFetchCategories = true;
+        
+        // Load products from cache
+        if (productsCache) {
+          try {
+            const parsed = JSON.parse(productsCache);
+            const cacheAge = Date.now() - new Date(parsed.cached_at).getTime();
+            setProducts(parsed.data || []);
+            setLoading(false);
+            console.log("Products loaded from cache:", { count: parsed.data?.length, cacheAge: Math.round(cacheAge / 1000) + "s" });
+            // Cache valid for 5 minutes
+            if (cacheAge < 300000) {
+              shouldFetchProducts = false;
+            }
+          } catch (e) {
+            console.error("Failed to parse cached products:", e);
+          }
+        }
+        
+        // Load categories from cache
+        if (categoriesCache) {
+          try {
+            const parsed = JSON.parse(categoriesCache);
+            const cacheAge = Date.now() - new Date(parsed.cached_at).getTime();
+            setCategories(parsed.data || []);
+            console.log("Categories loaded from cache:", { count: parsed.data?.length, cacheAge: Math.round(cacheAge / 1000) + "s" });
+            // Cache valid for 10 minutes
+            if (cacheAge < 600000) {
+              shouldFetchCategories = false;
+            }
+          } catch (e) {
+            console.error("Failed to parse cached categories:", e);
+          }
+        }
+        
+        // If both are cached and fresh, skip API calls
+        if (!shouldFetchProducts && !shouldFetchCategories) {
+          return;
+        }
+        
+        setLoading(true);
+        
+        // Fetch only what's needed
+        const requests = [];
+        if (shouldFetchProducts) requests.push(api.get('/home/featured-products?limit=100'));
+        if (shouldFetchCategories) requests.push(api.get('/categories'));
+        
+        const responses = await Promise.all(requests);
+        
+        let productsRes = shouldFetchProducts ? responses[0] : null;
+        let categoriesRes = shouldFetchCategories ? (shouldFetchProducts ? responses[1] : responses[0]) : null;
+        
+        // Update products if fetched
+        if (productsRes) {
+          const productsData = productsRes.data.products || [];
+          setProducts(productsData);
+          localStorage.setItem("products_page_cache", JSON.stringify({
+            data: productsData,
+            cached_at: new Date().toISOString()
+          }));
+          console.log("Products cached:", { count: productsData.length });
+        }
+        
+        // Update categories if fetched
+        if (categoriesRes) {
+          const categoriesData = categoriesRes.data.categories || [];
+          setCategories(categoriesData);
+          localStorage.setItem("products_categories_cache", JSON.stringify({
+            data: categoriesData,
+            cached_at: new Date().toISOString()
+          }));
+          console.log("Categories cached:", { count: categoriesData.length });
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
         setProducts([]);

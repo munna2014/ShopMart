@@ -94,6 +94,29 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [deletingOrders, setDeletingOrders] = useState({});
   const [categories, setCategories] = useState([]);
+  const [coupons, setCoupons] = useState([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponForm, setCouponForm] = useState({
+    code: "",
+    discount_percent: 10,
+    min_order_amount: 100,
+    starts_at: "",
+    ends_at: "",
+    is_active: true,
+  });
+  const [couponErrors, setCouponErrors] = useState({});
+  const [couponSubmitting, setCouponSubmitting] = useState(false);
+  const [editingCouponId, setEditingCouponId] = useState(null);
+  const [couponEditForm, setCouponEditForm] = useState({
+    code: "",
+    discount_percent: 10,
+    min_order_amount: 100,
+    starts_at: "",
+    ends_at: "",
+    is_active: true,
+  });
+  const [couponEditErrors, setCouponEditErrors] = useState({});
+  const [couponSavingId, setCouponSavingId] = useState(null);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
@@ -324,6 +347,217 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchCoupons = async () => {
+    try {
+      setCouponsLoading(true);
+      const response = await api.get('/admin/coupons');
+      setCoupons(response.data.coupons || []);
+    } catch (error) {
+      console.error('Error fetching coupons:', error);
+      setCoupons([]);
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
+  const handleCouponFormChange = (field, value) => {
+    setCouponForm((prev) => ({ ...prev, [field]: value }));
+    if (couponErrors[field]) {
+      setCouponErrors((prev) => {
+        const nextErrors = { ...prev };
+        delete nextErrors[field];
+        return nextErrors;
+      });
+    }
+  };
+
+  const validateCouponForm = () => {
+    const errors = {};
+    if (!couponForm.code.trim()) {
+      errors.code = 'Coupon code is required';
+    }
+    if (
+      couponForm.discount_percent === '' ||
+      Number.isNaN(Number(couponForm.discount_percent)) ||
+      Number(couponForm.discount_percent) <= 0 ||
+      Number(couponForm.discount_percent) > 100
+    ) {
+      errors.discount_percent = 'Discount must be between 0.01 and 100';
+    }
+    if (
+      couponForm.min_order_amount === '' ||
+      Number.isNaN(Number(couponForm.min_order_amount)) ||
+      Number(couponForm.min_order_amount) < 0
+    ) {
+      errors.min_order_amount = 'Minimum order must be 0 or higher';
+    }
+    if (!couponForm.starts_at) {
+      errors.starts_at = 'Start date is required';
+    }
+    if (!couponForm.ends_at) {
+      errors.ends_at = 'End date is required';
+    }
+    if (couponForm.starts_at && couponForm.ends_at && couponForm.ends_at < couponForm.starts_at) {
+      errors.ends_at = 'End date must be on or after start date';
+    }
+
+    setCouponErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleCreateCoupon = async () => {
+    if (!validateCouponForm()) {
+      return;
+    }
+
+    setCouponSubmitting(true);
+    try {
+      const response = await api.post('/admin/coupons', {
+        code: couponForm.code.trim(),
+        discount_percent: Number(couponForm.discount_percent),
+        min_order_amount: Number(couponForm.min_order_amount),
+        starts_at: couponForm.starts_at,
+        ends_at: couponForm.ends_at,
+        is_active: couponForm.is_active,
+      });
+      const created = response.data.coupon;
+      setCoupons((prev) => [created, ...prev]);
+      setCouponForm({
+        code: "",
+        discount_percent: 10,
+        min_order_amount: 100,
+        starts_at: "",
+        ends_at: "",
+        is_active: true,
+      });
+      setCouponErrors({});
+      alert('Coupon created successfully!');
+    } catch (error) {
+      console.error('Error creating coupon:', error);
+      const message = error.response?.data?.message || 'Failed to create coupon.';
+      alert(message);
+    } finally {
+      setCouponSubmitting(false);
+    }
+  };
+
+  const handleToggleCouponStatus = async (couponId, nextStatus) => {
+    try {
+      const response = await api.patch(`/admin/coupons/${couponId}`, {
+        is_active: nextStatus,
+      });
+      setCoupons((prev) =>
+        prev.map((coupon) =>
+          coupon.id === couponId ? response.data.coupon : coupon
+        )
+      );
+    } catch (error) {
+      console.error('Error updating coupon status:', error);
+      alert(error.response?.data?.message || 'Failed to update coupon status.');
+    }
+  };
+
+  const startEditCoupon = (coupon) => {
+    setEditingCouponId(coupon.id);
+    setCouponEditForm({
+      code: coupon.code || "",
+      discount_percent: Number(coupon.discount_percent || 0),
+      min_order_amount: Number(coupon.min_order_amount || 0),
+      starts_at: toDateInputValue(coupon.starts_at),
+      ends_at: toDateInputValue(coupon.ends_at),
+      is_active: Boolean(coupon.is_active),
+    });
+    setCouponEditErrors({});
+  };
+
+  const handleCouponEditChange = (field, value) => {
+    setCouponEditForm((prev) => ({ ...prev, [field]: value }));
+    if (couponEditErrors[field]) {
+      setCouponEditErrors((prev) => {
+        const nextErrors = { ...prev };
+        delete nextErrors[field];
+        return nextErrors;
+      });
+    }
+  };
+
+  const validateCouponEdit = () => {
+    const errors = {};
+    if (!couponEditForm.code.trim()) {
+      errors.code = 'Coupon code is required';
+    }
+    if (
+      couponEditForm.discount_percent === '' ||
+      Number.isNaN(Number(couponEditForm.discount_percent)) ||
+      Number(couponEditForm.discount_percent) <= 0 ||
+      Number(couponEditForm.discount_percent) > 100
+    ) {
+      errors.discount_percent = 'Discount must be between 0.01 and 100';
+    }
+    if (
+      couponEditForm.min_order_amount === '' ||
+      Number.isNaN(Number(couponEditForm.min_order_amount)) ||
+      Number(couponEditForm.min_order_amount) < 0
+    ) {
+      errors.min_order_amount = 'Minimum order must be 0 or higher';
+    }
+    if (!couponEditForm.starts_at) {
+      errors.starts_at = 'Start date is required';
+    }
+    if (!couponEditForm.ends_at) {
+      errors.ends_at = 'End date is required';
+    }
+    if (
+      couponEditForm.starts_at &&
+      couponEditForm.ends_at &&
+      couponEditForm.ends_at < couponEditForm.starts_at
+    ) {
+      errors.ends_at = 'End date must be on or after start date';
+    }
+
+    setCouponEditErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveCouponEdit = async (couponId) => {
+    if (!validateCouponEdit()) {
+      return;
+    }
+
+    setCouponSavingId(couponId);
+    try {
+      const response = await api.patch(`/admin/coupons/${couponId}`, {
+        code: couponEditForm.code.trim(),
+        discount_percent: Number(couponEditForm.discount_percent),
+        min_order_amount: Number(couponEditForm.min_order_amount),
+        starts_at: couponEditForm.starts_at,
+        ends_at: couponEditForm.ends_at,
+        is_active: couponEditForm.is_active,
+      });
+      setCoupons((prev) =>
+        prev.map((coupon) =>
+          coupon.id === couponId ? response.data.coupon : coupon
+        )
+      );
+      setEditingCouponId(null);
+    } catch (error) {
+      console.error('Error saving coupon:', error);
+      const message =
+        error.response?.data?.errors?.code?.[0] ||
+        error.response?.data?.errors?.ends_at?.[0] ||
+        error.response?.data?.message ||
+        'Failed to save coupon.';
+      alert(message);
+    } finally {
+      setCouponSavingId(null);
+    }
+  };
+
+  const handleCancelCouponEdit = () => {
+    setEditingCouponId(null);
+    setCouponEditErrors({});
+  };
+
   const loadActiveTab = async (tab) => {
     setDataLoading(true);
     try {
@@ -357,6 +591,13 @@ export default function AdminDashboard() {
         if (pendingUsers.length === 0) {
           await fetchPendingUsers();
         }
+        return;
+      }
+      if (tab === "coupons") {
+        if (coupons.length === 0) {
+          await fetchCoupons();
+        }
+        return;
       }
     } catch (error) {
       console.error("Error fetching admin data:", error);
@@ -1189,7 +1430,7 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center">
                 <svg
                   className="w-6 h-6 text-white"
                   viewBox="0 0 24 24"
@@ -1254,13 +1495,18 @@ export default function AdminDashboard() {
                 label: "Customers",
                 icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z",
               },
+              {
+                id: "coupons",
+                label: "Coupons",
+                icon: "M4 7h16M4 17h16M7 3v4M7 17v4M17 3v4M17 17v4",
+              },
             ].map((item) => (
               <button
                 key={item.id}
                 onClick={() => handleTabChange(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   activeTab === item.id
-                    ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white"
+                    ? "bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white"
                     : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
@@ -1311,7 +1557,7 @@ export default function AdminDashboard() {
                     label: "Total Orders",
                     value: stats.totalOrders,
                     icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
-                    color: "from-green-500 to-green-600",
+                    color: "from-emerald-600 via-teal-600 to-cyan-700",
                   },
                   {
                     label: "Revenue",
@@ -1446,7 +1692,7 @@ export default function AdminDashboard() {
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={() => setShowAddProduct(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
                   >
                     <svg
                       className="w-5 h-5"
@@ -2255,6 +2501,331 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+          {activeTab === "coupons" && (
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                <div>
+                  <h2 className="text-3xl font-extrabold text-emerald-900 drop-shadow-sm">
+                    Coupons
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    Create minimum order coupons for all customers.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="bg-white rounded-2xl shadow-xl border border-emerald-200 ring-2 ring-emerald-100 p-6">
+                  <h3 className="text-lg font-bold text-emerald-900 mb-4">
+                    Create Coupon
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Coupon Code *
+                      </label>
+                      <input
+                        type="text"
+                        value={couponForm.code}
+                        onChange={(e) => handleCouponFormChange('code', e.target.value)}
+                        className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                          couponErrors.code ? 'border-rose-500' : 'border-gray-300'
+                        }`}
+                        placeholder="SAVE10"
+                      />
+                      {couponErrors.code && (
+                        <p className="text-rose-600 text-sm mt-1">{couponErrors.code}</p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Discount Percent *
+                        </label>
+                        <input
+                          type="number"
+                          min="0.01"
+                          max="100"
+                          step="0.01"
+                          value={couponForm.discount_percent}
+                          onChange={(e) => handleCouponFormChange('discount_percent', e.target.value)}
+                          className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                            couponErrors.discount_percent ? 'border-rose-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {couponErrors.discount_percent && (
+                          <p className="text-rose-600 text-sm mt-1">{couponErrors.discount_percent}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Minimum Order *
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={couponForm.min_order_amount}
+                          onChange={(e) => handleCouponFormChange('min_order_amount', e.target.value)}
+                          className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                            couponErrors.min_order_amount ? 'border-rose-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {couponErrors.min_order_amount && (
+                          <p className="text-rose-600 text-sm mt-1">{couponErrors.min_order_amount}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Start Date *
+                        </label>
+                        <input
+                          type="date"
+                          value={couponForm.starts_at}
+                          onChange={(e) => handleCouponFormChange('starts_at', e.target.value)}
+                          className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                            couponErrors.starts_at ? 'border-rose-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {couponErrors.starts_at && (
+                          <p className="text-rose-600 text-sm mt-1">{couponErrors.starts_at}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          End Date *
+                        </label>
+                        <input
+                          type="date"
+                          value={couponForm.ends_at}
+                          onChange={(e) => handleCouponFormChange('ends_at', e.target.value)}
+                          className={`w-full text-black px-4 py-3 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                            couponErrors.ends_at ? 'border-rose-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {couponErrors.ends_at && (
+                          <p className="text-rose-600 text-sm mt-1">{couponErrors.ends_at}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <label className="flex items-center gap-3 text-sm font-medium text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={couponForm.is_active}
+                        onChange={(e) => handleCouponFormChange('is_active', e.target.checked)}
+                        className="w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                      />
+                      Set as active
+                    </label>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCreateCoupon}
+                    disabled={couponSubmitting}
+                    className="mt-6 w-full px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {couponSubmitting ? "Creating..." : "Create Coupon"}
+                  </button>
+                </div>
+
+                <div className="lg:col-span-2 bg-white rounded-2xl shadow-xl border border-emerald-200 ring-2 ring-emerald-100 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-emerald-900">Active Coupons</h3>
+                    {couponsLoading && (
+                      <span className="text-sm text-gray-500">Loading...</span>
+                    )}
+                  </div>
+
+                  {coupons.length === 0 ? (
+                    <div className="text-sm text-gray-500">No coupons created yet.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[760px] text-sm">
+                        <thead className="text-gray-500">
+                          <tr>
+                            <th className="px-4 py-2 text-left font-semibold">Code</th>
+                            <th className="px-4 py-2 text-left font-semibold">Discount</th>
+                            <th className="px-4 py-2 text-left font-semibold">Minimum</th>
+                            <th className="px-4 py-2 text-left font-semibold">Dates</th>
+                            <th className="px-4 py-2 text-left font-semibold">Used</th>
+                            <th className="px-4 py-2 text-left font-semibold">Status</th>
+                            <th className="px-4 py-2 text-left font-semibold">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {coupons.map((coupon) => {
+                            const isEditing = editingCouponId === coupon.id;
+                            return (
+                              <tr key={coupon.id} className="hover:bg-emerald-50/60 transition-colors">
+                                <td className="px-4 py-3 font-semibold text-gray-900">
+                                  {isEditing ? (
+                                    <div className="space-y-1">
+                                      <input
+                                        type="text"
+                                        value={couponEditForm.code}
+                                        onChange={(e) => handleCouponEditChange('code', e.target.value)}
+                                        className={`w-full text-black px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                                          couponEditErrors.code ? 'border-rose-500' : 'border-gray-300'
+                                        }`}
+                                      />
+                                      {couponEditErrors.code && (
+                                        <p className="text-xs text-rose-600">{couponEditErrors.code}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    coupon.code
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  {isEditing ? (
+                                    <div className="space-y-1">
+                                      <input
+                                        type="number"
+                                        min="0.01"
+                                        max="100"
+                                        step="0.01"
+                                        value={couponEditForm.discount_percent}
+                                        onChange={(e) => handleCouponEditChange('discount_percent', e.target.value)}
+                                        className={`w-full text-black px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                                          couponEditErrors.discount_percent ? 'border-rose-500' : 'border-gray-300'
+                                        }`}
+                                      />
+                                      {couponEditErrors.discount_percent && (
+                                        <p className="text-xs text-rose-600">{couponEditErrors.discount_percent}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    `${Number(coupon.discount_percent).toFixed(2)}%`
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  {isEditing ? (
+                                    <div className="space-y-1">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={couponEditForm.min_order_amount}
+                                        onChange={(e) => handleCouponEditChange('min_order_amount', e.target.value)}
+                                        className={`w-full text-black px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                                          couponEditErrors.min_order_amount ? 'border-rose-500' : 'border-gray-300'
+                                        }`}
+                                      />
+                                      {couponEditErrors.min_order_amount && (
+                                        <p className="text-xs text-rose-600">{couponEditErrors.min_order_amount}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    `$${Number(coupon.min_order_amount || 0).toFixed(2)}`
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-gray-500">
+                                  {isEditing ? (
+                                    <div className="space-y-2">
+                                      <input
+                                        type="date"
+                                        value={couponEditForm.starts_at}
+                                        onChange={(e) => handleCouponEditChange('starts_at', e.target.value)}
+                                        className={`w-full text-black px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                                          couponEditErrors.starts_at ? 'border-rose-500' : 'border-gray-300'
+                                        }`}
+                                      />
+                                      <input
+                                        type="date"
+                                        value={couponEditForm.ends_at}
+                                        onChange={(e) => handleCouponEditChange('ends_at', e.target.value)}
+                                        className={`w-full text-black px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none ${
+                                          couponEditErrors.ends_at ? 'border-rose-500' : 'border-gray-300'
+                                        }`}
+                                      />
+                                      {(couponEditErrors.starts_at || couponEditErrors.ends_at) && (
+                                        <p className="text-xs text-rose-600">
+                                          {couponEditErrors.starts_at || couponEditErrors.ends_at}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div>{formatDate(coupon.starts_at)}</div>
+                                      <div>{formatDate(coupon.ends_at)}</div>
+                                    </>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">
+                                  {coupon.used_count || 0}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {isEditing ? (
+                                    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={couponEditForm.is_active}
+                                        onChange={(e) => handleCouponEditChange('is_active', e.target.checked)}
+                                        className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                                      />
+                                      Active
+                                    </label>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleCouponStatus(coupon.id, !coupon.is_active)}
+                                      className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                                        coupon.is_active
+                                          ? "text-emerald-700 border-emerald-200 bg-emerald-50"
+                                          : "text-gray-600 border-gray-200 bg-gray-50"
+                                      }`}
+                                    >
+                                      {coupon.is_active ? "Active" : "Inactive"}
+                                    </button>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {isEditing ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveCouponEdit(coupon.id)}
+                                        disabled={couponSavingId === coupon.id}
+                                        className="px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                                      >
+                                        {couponSavingId === coupon.id ? "Saving..." : "Save"}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={handleCancelCouponEdit}
+                                        className="px-3 py-2 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditCoupon(coupon)}
+                                      disabled={editingCouponId && editingCouponId !== coupon.id}
+                                      className="px-3 py-2 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                      Edit
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -3011,7 +3582,7 @@ export default function AdminDashboard() {
               <button
                 onClick={handleAddProduct}
                 disabled={isSubmitting}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>

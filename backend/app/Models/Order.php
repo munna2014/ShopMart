@@ -20,11 +20,18 @@ class Order extends Model
         'total_amount',
         'currency',
         'shipping_address',
+        'coupon_id',
+        'coupon_code',
+        'coupon_discount_percent',
+        'coupon_discount_amount',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
         'shipping_address' => 'array',
+        'coupon_id' => 'integer',
+        'coupon_discount_percent' => 'decimal:2',
+        'coupon_discount_amount' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'paid_at' => 'datetime',

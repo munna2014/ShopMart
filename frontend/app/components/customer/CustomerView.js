@@ -14,6 +14,7 @@ const VALID_TABS = [
   "orders",
   "notifications",
   "addresses",
+  "coupons",
   "settings",
 ];
 
@@ -69,6 +70,12 @@ export default function CustomerView({ customer: initialCustomer }) {
     is_default: false
   });
   const [addressErrors, setAddressErrors] = useState({});
+
+  const [coupons, setCoupons] = useState([]);
+  const [usedCoupons, setUsedCoupons] = useState([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponsError, setCouponsError] = useState("");
+  const [couponsSubtotal, setCouponsSubtotal] = useState(0);
 
   const [profilePictureUploading, setProfilePictureUploading] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -307,6 +314,11 @@ export default function CustomerView({ customer: initialCustomer }) {
       icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
     },
     {
+      id: "coupons",
+      label: "My Coupons",
+      icon: "M10 3a1 1 0 00-1 1v2a2 2 0 00-2 2H5a1 1 0 000 2h2a2 2 0 002 2v2a1 1 0 002 0v-2a2 2 0 002-2h6a2 2 0 002-2h2a1 1 0 100-2h-2a2 2 0 00-2-2h-6a2 2 0 00-2-2V4a1 1 0 00-1-1z",
+    },
+    {
       id: "settings",
       label: "Settings",
       icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
@@ -393,6 +405,13 @@ export default function CustomerView({ customer: initialCustomer }) {
   useEffect(() => {
     if (activeTab === "addresses" && addresses.length === 0) {
       fetchAddresses();
+    }
+  }, [activeTab]);
+
+  // Fetch coupons when Coupons tab is active
+  useEffect(() => {
+    if (activeTab === "coupons") {
+      fetchCoupons();
     }
   }, [activeTab]);
 
@@ -597,6 +616,24 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
+  const fetchCoupons = async () => {
+    try {
+      setCouponsLoading(true);
+      setCouponsError("");
+      const response = await api.get("/coupons/active");
+      setCoupons(response.data.coupons || []);
+      setUsedCoupons(response.data.used_coupons || []);
+      setCouponsSubtotal(Number(response.data.cart_subtotal || 0));
+    } catch (error) {
+      console.error("Error fetching coupons:", error);
+      setCoupons([]);
+      setUsedCoupons([]);
+      setCouponsError(error.response?.data?.message || "Failed to load coupons.");
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
   const toggleOrderDetails = (orderId) => {
     setExpandedOrderId((prev) => (prev === orderId ? null : orderId));
   };
@@ -604,6 +641,27 @@ export default function CustomerView({ customer: initialCustomer }) {
   const formatOrderLabel = (orderId) => {
     if (!orderId) return "Order";
     return `#ORD-${String(orderId).padStart(5, "0")}`;
+  };
+
+  const formatCouponDate = (value) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const getCouponStatusClasses = (status) => {
+    if (status === "eligible") {
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    }
+    if (status === "used") {
+      return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+    return "bg-amber-100 text-amber-700 border-amber-200";
   };
 
   const handleNotificationClick = async (notification) => {
@@ -2026,6 +2084,159 @@ export default function CustomerView({ customer: initialCustomer }) {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Coupons Tab */}
+          {activeTab === "coupons" && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-2xl p-8 text-white shadow-lg">
+                <h2 className="text-2xl font-bold mb-2">My Coupons</h2>
+                <p className="text-emerald-50/90">
+                  Browse active coupons and see eligibility for your current cart.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                  <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20">
+                    Cart subtotal: ${Number(couponsSubtotal || 0).toFixed(2)}
+                  </span>
+                  <Link
+                    href="/components/customer/checkout"
+                    className="px-3 py-1 rounded-full bg-white text-emerald-700 font-semibold hover:bg-emerald-50 transition-colors"
+                  >
+                    Go to checkout
+                  </Link>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">Active Coupons</h3>
+                </div>
+                {couponsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+                  </div>
+                ) : couponsError ? (
+                  <div className="text-center py-8 text-rose-600">
+                    {couponsError}
+                  </div>
+                ) : coupons.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-lg font-medium">No active coupons</p>
+                    <p className="text-sm">Check back later for new offers.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {coupons.map((coupon) => (
+                      <div
+                        key={coupon.id}
+                        className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 p-4 border border-gray-100 rounded-xl bg-gray-50"
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-bold text-gray-900">
+                              {coupon.code}
+                            </span>
+                            <span
+                              className={`text-xs font-semibold px-2 py-1 rounded-full border ${getCouponStatusClasses(
+                                coupon.status
+                              )}`}
+                            >
+                              {coupon.status_label}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Number(coupon.discount_percent || 0).toFixed(2)}% off | Min $
+                            {Number(coupon.min_order_amount || 0).toFixed(2)} | Valid{" "}
+                            {formatCouponDate(coupon.starts_at)} - {formatCouponDate(coupon.ends_at)}
+                          </div>
+                          {coupon.reason && (
+                            <div className="text-xs text-amber-700 mt-1">
+                              {coupon.reason}
+                            </div>
+                          )}
+                          {!coupon.reason && coupon.min_order_remaining > 0 && (
+                            <div className="text-xs text-amber-700 mt-1">
+                              Spend ${Number(coupon.min_order_remaining).toFixed(2)} more to unlock.
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-sm font-semibold text-emerald-700">
+                          {coupon.eligible ? "Eligible now" : "Not eligible"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">Used Coupons</h3>
+                </div>
+                {couponsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+                  </div>
+                ) : usedCoupons.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-lg font-medium">No used coupons yet</p>
+                    <p className="text-sm">Apply a coupon at checkout to see it here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {usedCoupons.map((coupon) => {
+                      const minValue = coupon.min_order_amount;
+                      const minLabel =
+                        minValue === null || minValue === undefined
+                          ? "Min N/A"
+                          : `Min $${Number(minValue).toFixed(2)}`;
+                      const hasDates = coupon.starts_at || coupon.ends_at;
+                      const validLabel = hasDates
+                        ? `Valid ${formatCouponDate(coupon.starts_at)} - ${formatCouponDate(coupon.ends_at)}`
+                        : "Valid N/A";
+                      const usedLabel = coupon.used_at
+                        ? `Used on ${formatCouponDate(coupon.used_at)}`
+                        : "Used";
+                      const timesUsed =
+                        coupon.times_used && coupon.times_used > 1
+                          ? ` (${coupon.times_used}x)`
+                          : "";
+                      return (
+                        <div
+                          key={`${coupon.id || coupon.code}-used`}
+                          className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 p-4 border border-gray-100 rounded-xl bg-gray-50"
+                        >
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-bold text-gray-900">
+                                {coupon.code}
+                              </span>
+                              <span
+                                className={`text-xs font-semibold px-2 py-1 rounded-full border ${getCouponStatusClasses(
+                                  "used"
+                                )}`}
+                              >
+                                Used
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {Number(coupon.discount_percent || 0).toFixed(2)}% off | {minLabel} | {validLabel}
+                            </div>
+                            <div className="text-xs text-amber-700 mt-1">
+                              {usedLabel}
+                              {timesUsed}
+                            </div>
+                          </div>
+                          <div className="text-sm font-semibold text-slate-700">
+                            Not eligible
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

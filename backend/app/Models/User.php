@@ -139,6 +139,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Loyalty points relationship
+     */
+    public function loyaltyPoints()
+    {
+        return $this->hasOne(LoyaltyPoint::class);
+    }
+
+    /**
+     * Loyalty transactions relationship
+     */
+    public function loyaltyTransactions()
+    {
+        return $this->hasMany(LoyaltyTransaction::class);
+    }
+
+    /**
      * Get default address
      */
     public function defaultAddress()

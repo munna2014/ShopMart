@@ -442,9 +442,43 @@ export default function CustomerView({ customer: initialCustomer }) {
 
   const fetchAddresses = async () => {
     try {
+      // Check cache first
+      const cacheKey = customer?.id ? `customer_addresses_${customer.id}` : null;
+      if (cacheKey) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            const cacheAge = Date.now() - new Date(parsed.cached_at).getTime();
+            
+            // Use cache immediately
+            setAddresses(parsed.data || []);
+            setAddressesLoading(false);
+            console.log("Addresses loaded from cache:", { count: parsed.data?.length, cacheAge: Math.round(cacheAge / 1000) + "s" });
+            
+            // If cache is fresh (less than 5 minutes), don't fetch
+            if (cacheAge < 300000) {
+              return;
+            }
+          } catch (e) {
+            console.error("Failed to parse cached addresses:", e);
+          }
+        }
+      }
+      
       setAddressesLoading(true);
       const response = await api.get('/addresses');
-      setAddresses(response.data.data || []);
+      const addressesData = response.data.data || [];
+      setAddresses(addressesData);
+      
+      // Update cache
+      if (cacheKey) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: addressesData,
+          cached_at: new Date().toISOString(),
+        }));
+        console.log("Addresses cached:", { count: addressesData.length });
+      }
     } catch (error) {
       console.error('Error fetching addresses:', error);
       setAddresses([]);
@@ -511,10 +545,45 @@ export default function CustomerView({ customer: initialCustomer }) {
       if (ordersLoading || (!force && ordersLoaded)) {
         return;
       }
+      
+      // Check cache first
+      const cacheKey = customer?.id ? `customer_orders_${customer.id}` : null;
+      if (cacheKey && !force) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            const cacheAge = Date.now() - new Date(parsed.cached_at).getTime();
+            
+            // Use cache immediately
+            setOrders(parsed.data || []);
+            setOrdersLoaded(true);
+            console.log("Orders loaded from cache:", { count: parsed.data?.length, cacheAge: Math.round(cacheAge / 1000) + "s" });
+            
+            // If cache is fresh (less than 2 minutes), don't fetch
+            if (cacheAge < 120000) {
+              return;
+            }
+          } catch (e) {
+            console.error("Failed to parse cached orders:", e);
+          }
+        }
+      }
+      
       setOrdersLoading(true);
       const response = await api.get('/orders');
-      setOrders(response.data.orders || []);
+      const ordersData = response.data.orders || [];
+      setOrders(ordersData);
       setOrdersLoaded(true);
+      
+      // Update cache
+      if (cacheKey) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: ordersData,
+          cached_at: new Date().toISOString(),
+        }));
+        console.log("Orders cached:", { count: ordersData.length });
+      }
     } catch (error) {
       console.error('Error fetching orders:', error);
       setOrders([]);
@@ -837,6 +906,14 @@ export default function CustomerView({ customer: initialCustomer }) {
           setAddresses(prev => prev.map(addr => 
             addr.id === editingAddress.id ? response.data.data : addr
           ));
+          
+          // Invalidate addresses cache
+          const cacheKey = customer?.id ? `customer_addresses_${customer.id}` : null;
+          if (cacheKey) {
+            localStorage.removeItem(cacheKey);
+            console.log("Addresses cache invalidated after update");
+          }
+          
           alert('Address updated successfully!');
         }
       } else {
@@ -844,6 +921,14 @@ export default function CustomerView({ customer: initialCustomer }) {
         const response = await api.post('/addresses', addressForm);
         if (response.data.status === 'success') {
           setAddresses(prev => [...prev, response.data.data]);
+          
+          // Invalidate addresses cache
+          const cacheKey = customer?.id ? `customer_addresses_${customer.id}` : null;
+          if (cacheKey) {
+            localStorage.removeItem(cacheKey);
+            console.log("Addresses cache invalidated after creation");
+          }
+          
           alert('Address added successfully!');
         }
       }
@@ -866,6 +951,14 @@ export default function CustomerView({ customer: initialCustomer }) {
       try {
         await api.delete(`/addresses/${addressId}`);
         setAddresses(prev => prev.filter(addr => addr.id !== addressId));
+        
+        // Invalidate addresses cache
+        const cacheKey = customer?.id ? `customer_addresses_${customer.id}` : null;
+        if (cacheKey) {
+          localStorage.removeItem(cacheKey);
+          console.log("Addresses cache invalidated after deletion");
+        }
+        
         alert('Address deleted successfully!');
       } catch (error) {
         console.error('Error deleting address:', error);
@@ -883,6 +976,14 @@ export default function CustomerView({ customer: initialCustomer }) {
           ...addr,
           is_default: addr.id === addressId
         })));
+        
+        // Invalidate addresses cache
+        const cacheKey = customer?.id ? `customer_addresses_${customer.id}` : null;
+        if (cacheKey) {
+          localStorage.removeItem(cacheKey);
+          console.log("Addresses cache invalidated after setting default");
+        }
+        
         alert('Default address updated!');
       }
     } catch (error) {

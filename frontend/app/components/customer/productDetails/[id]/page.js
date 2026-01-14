@@ -357,7 +357,7 @@ export default function ProductDetailsPage({ params }) {
                 </div>
               </div>
               <div>
-                <p className="text-sm text-green-600 font-semibold uppercase tracking-wide mb-2">
+                <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-2">
                   {product.category?.name || "Uncategorized"}
                 </p>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">

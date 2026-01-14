@@ -1571,15 +1571,23 @@ export default function CustomerView({ customer: initialCustomer }) {
                     <div className="text-sm mb-1">Next Reward</div>
                     <div className="w-full bg-white/30 rounded-full h-2 mb-2">
                       <div
-                        className="bg-white h-2 rounded-full"
-                        style={{ width: "75%" }}
+                        className="bg-white h-2 rounded-full transition-all"
+                        style={{ 
+                          width: `${Math.min((customer.loyaltyPoints % 100), 100)}%`
+                        }}
                       ></div>
                     </div>
                     <div className="text-xs text-white/80">
-                      250 points to go
+                      {customer.loyaltyPoints >= 100 
+                        ? "You can redeem points!" 
+                        : `${100 - (customer.loyaltyPoints % 100)} points to go`
+                      }
                     </div>
                   </div>
-                  <button className="w-full bg-white text-green-600 py-3 rounded-lg font-semibold hover:shadow-lg transition-all">
+                  <button 
+                    onClick={() => setActiveTab("loyalty")}
+                    className="w-full bg-white text-green-600 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
+                  >
                     Redeem Points
                   </button>
                 </div>

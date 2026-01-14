@@ -30,7 +30,7 @@ export default function Navigation() {
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
               <svg
                 className="w-7 h-7 text-white"
                 viewBox="0 0 24 24"
@@ -45,7 +45,7 @@ export default function Navigation() {
                 />
               </svg>
             </div>
-            <span className="text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            <span className="text-2xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
               ShopMart
             </span>
           </Link>
@@ -119,7 +119,7 @@ export default function Navigation() {
                 </Link>
                 <Link
                   href="/register"
-                  className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
+                  className="px-6 py-2.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
                 >
                   Sign Up
                 </Link>

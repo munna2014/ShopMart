@@ -144,7 +144,7 @@ export default function ResetPassword() {
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
                   className="w-7 h-7 text-white"
                   viewBox="0 0 24 24"
@@ -159,7 +159,7 @@ export default function ResetPassword() {
                   />
                 </svg>
               </div>
-              <span className="text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-2xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -168,7 +168,7 @@ export default function ResetPassword() {
             <div className="flex items-center gap-4">
               <Link
                 href="/login"
-                className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
               >
                 Back to Login
               </Link>
@@ -180,7 +180,7 @@ export default function ResetPassword() {
       <div className="flex items-center justify-center min-h-screen pt-20 pb-10 px-4">
         <div className="w-full max-w-md px-8 py-10 bg-white rounded-3xl shadow-2xl shadow-green-200/50 transition-all duration-300 hover:shadow-green-300/60 border border-green-100">
           <div className="mb-8 text-center">
-            <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent mb-2">
               {step === 1 ? "Verify Reset Code" : "Set New Password"}
             </h1>
             <p className="text-gray-600 text-lg">
@@ -212,7 +212,7 @@ export default function ResetPassword() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300"
+                  className="w-full px-5 py-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border-2 border-green-200 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300"
                   placeholder="Enter your email"
                 />
                 {errors?.email && (
@@ -236,7 +236,7 @@ export default function ResetPassword() {
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   required
                   maxLength="6"
-                  className={`w-full px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 text-center text-2xl font-mono tracking-widest ${
+                  className={`w-full px-5 py-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 placeholder-gray-500 transition-all duration-300 text-center text-2xl font-mono tracking-widest ${
                     errors?.otp
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400"
@@ -253,7 +253,7 @@ export default function ResetPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl text-base font-bold text-white bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-500 hover:via-emerald-500 hover:to-teal-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-400/40"
+                className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl text-base font-bold text-white bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-400/40"
               >
                 {loading ? "Verifying..." : "Verify Code"}
               </button>
@@ -288,7 +288,7 @@ export default function ResetPassword() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className={`px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
+                  className={`px-5 py-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
                     errors?.password
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400"
@@ -310,7 +310,7 @@ export default function ResetPassword() {
                   value={passwordConfirmation}
                   onChange={(e) => setPasswordConfirmation(e.target.value)}
                   required
-                  className={`px-5 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
+                  className={`px-5 py-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border-2 rounded-xl focus:ring-2 transition-all duration-300 ${
                     errors?.password_confirmation
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-green-200 focus:ring-green-400 focus:border-green-400"
@@ -323,7 +323,7 @@ export default function ResetPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl text-base font-bold text-white bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-500 hover:via-emerald-500 hover:to-teal-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-400/40"
+                className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl text-base font-bold text-white bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-400/40"
               >
                 {loading ? "Resetting Password..." : "Reset Password"}
               </button>
@@ -335,7 +335,7 @@ export default function ResetPassword() {
               Remember your password?{" "}
               <Link
                 href="/login"
-                className="font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent hover:from-green-700 hover:to-emerald-700 transition-all"
+                className="font-bold bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent hover:from-emerald-800 hover:via-teal-800 hover:to-cyan-900 transition-all"
               >
                 Sign in here
               </Link>

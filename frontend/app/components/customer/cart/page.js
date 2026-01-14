@@ -13,7 +13,7 @@ export default function CartPage() {
   const { loading, isAuthenticated, isAdmin } = useAuth();
 
   const [cart, setCart] = useState([]);
-  const [cartLoading, setCartLoading] = useState(false);
+  const [cartLoading, setCartLoading] = useState(true);
 
   // Auth guard
   useEffect(() => {
@@ -96,6 +96,8 @@ export default function CartPage() {
     fetchCart();
   }, [isAuthenticated]);
 
+  const isLoading = loading || cartLoading;
+
   const totals = useMemo(() => {
     const subtotal = cart.reduce((sum, item) => {
       const price = Number(item.price || 0);
@@ -169,8 +171,8 @@ export default function CartPage() {
       <nav className="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
-            <Link href="/components/customer" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
                   className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                   viewBox="0 0 24 24"
@@ -185,7 +187,7 @@ export default function CartPage() {
                   />
                 </svg>
               </div>
-              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -203,7 +205,7 @@ export default function CartPage() {
         <div className="bg-white border border-gray-100 rounded-2xl shadow-xl p-4 sm:p-6">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">Shopping Cart</h1>
 
-          {cartLoading ? (
+          {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div key={index} className="h-20 bg-gray-100 rounded-xl animate-pulse"></div>
@@ -214,7 +216,7 @@ export default function CartPage() {
               <p className="text-gray-600 mb-4">Your cart is empty.</p>
               <Link
                 href="/"
-                className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+                className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
               >
                 Continue Shopping
               </Link>
@@ -333,7 +335,7 @@ export default function CartPage() {
                         ? "/components/customer/checkout"
                         : "/login?redirect=/components/customer/checkout"
                     }
-                    className="flex-1 text-center py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+                    className="flex-1 text-center py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
                   >
                     Proceed to Checkout
                   </Link>

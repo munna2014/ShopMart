@@ -77,23 +77,94 @@ export default function HomeClient() {
   // Fetch home page data
   const fetchHomeData = async () => {
     try {
-      setDataLoading(true);
+      // Check cache first for categories and products
+      const categoriesCache = localStorage.getItem("home_categories_cache");
+      const productsCache = localStorage.getItem("home_featured_products_cache");
       
-      // Fetch stats, categories, and featured products
-      const [statsRes, categoriesRes, productsRes] = await Promise.all([
-        api.get('/home/stats'),
-        api.get('/home/categories'),
-        api.get('/home/featured-products')
-      ]);
+      let shouldFetchCategories = true;
+      let shouldFetchProducts = true;
+      
+      // Load categories from cache
+      if (categoriesCache) {
+        try {
+          const parsed = JSON.parse(categoriesCache);
+          const cacheAge = Date.now() - new Date(parsed.cached_at).getTime();
+          setCategories(parsed.data || []);
+          console.log("Categories loaded from cache:", { count: parsed.data?.length, cacheAge: Math.round(cacheAge / 1000) + "s" });
+          // Cache valid for 10 minutes
+          if (cacheAge < 600000) {
+            shouldFetchCategories = false;
+          }
+        } catch (e) {
+          console.error("Failed to parse cached categories:", e);
+        }
+      }
+      
+      // Load featured products from cache
+      if (productsCache) {
+        try {
+          const parsed = JSON.parse(productsCache);
+          const cacheAge = Date.now() - new Date(parsed.cached_at).getTime();
+          setFeaturedProducts(parsed.data || []);
+          console.log("Featured products loaded from cache:", { count: parsed.data?.length, cacheAge: Math.round(cacheAge / 1000) + "s" });
+          // Cache valid for 5 minutes
+          if (cacheAge < 300000) {
+            shouldFetchProducts = false;
+          }
+        } catch (e) {
+          console.error("Failed to parse cached featured products:", e);
+        }
+      }
+      
+      // If both are cached and fresh, skip loading state
+      if (!shouldFetchCategories && !shouldFetchProducts) {
+        setDataLoading(false);
+      } else {
+        setDataLoading(true);
+      }
+      
+      // Fetch fresh data only for what's needed
+      const requests = [api.get('/home/stats')];
+      if (shouldFetchCategories) requests.push(api.get('/home/categories'));
+      if (shouldFetchProducts) requests.push(api.get('/home/featured-products'));
+      
+      const responses = await Promise.all(requests);
+      
+      let statsRes = responses[0];
+      let categoriesRes = shouldFetchCategories ? responses[1] : null;
+      let productsRes = shouldFetchProducts ? (shouldFetchCategories ? responses[2] : responses[1]) : null;
       
       const nextStats = statsRes.data || { total_products: 0, total_customers: 0, total_orders: 0 };
       setStats(nextStats);
       setStatsReady(true);
       if (typeof window !== "undefined") {
-        localStorage.setItem("home_stats_cache", JSON.stringify(nextStats));
+        localStorage.setItem("home_stats_cache", JSON.stringify({
+          ...nextStats,
+          cached_at: new Date().toISOString()
+        }));
       }
-      setCategories(categoriesRes.data.categories || []);
-      setFeaturedProducts(productsRes.data.products || []);
+      
+      // Update categories if fetched
+      if (categoriesRes) {
+        const categoriesData = categoriesRes.data.categories || [];
+        setCategories(categoriesData);
+        localStorage.setItem("home_categories_cache", JSON.stringify({
+          data: categoriesData,
+          cached_at: new Date().toISOString()
+        }));
+        console.log("Categories cached:", { count: categoriesData.length });
+      }
+      
+      // Update featured products if fetched
+      if (productsRes) {
+        const productsData = productsRes.data.products || [];
+        setFeaturedProducts(productsData);
+        localStorage.setItem("home_featured_products_cache", JSON.stringify({
+          data: productsData,
+          cached_at: new Date().toISOString()
+        }));
+        console.log("Featured products cached:", { count: productsData.length });
+      }
     } catch (error) {
       console.error('Error fetching home data:', error);
       // Set fallback data on error
@@ -109,19 +180,49 @@ export default function HomeClient() {
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
+      // Load stats from cache
       const cachedStats = localStorage.getItem("home_stats_cache");
       const token = localStorage.getItem("token");
       setHasToken(Boolean(token));
+      
       if (cachedStats) {
         try {
           const parsed = JSON.parse(cachedStats);
           // Immediately set stats from cache for instant display
           setStats(parsed);
           setStatsReady(true);
-          setDataLoading(false); // Set loading to false since we have cached data
         } catch (error) {
           console.error("Failed to parse cached stats:", error);
         }
+      }
+      
+      // Load categories from cache
+      const cachedCategories = localStorage.getItem("home_categories_cache");
+      if (cachedCategories) {
+        try {
+          const parsed = JSON.parse(cachedCategories);
+          setCategories(parsed.data || []);
+          console.log("Categories loaded immediately from cache:", parsed.data?.length);
+        } catch (error) {
+          console.error("Failed to parse cached categories:", error);
+        }
+      }
+      
+      // Load featured products from cache
+      const cachedProducts = localStorage.getItem("home_featured_products_cache");
+      if (cachedProducts) {
+        try {
+          const parsed = JSON.parse(cachedProducts);
+          setFeaturedProducts(parsed.data || []);
+          console.log("Featured products loaded immediately from cache:", parsed.data?.length);
+        } catch (error) {
+          console.error("Failed to parse cached featured products:", error);
+        }
+      }
+      
+      // If we have all cached data, set loading to false
+      if (cachedStats && cachedCategories && cachedProducts) {
+        setDataLoading(false);
       }
     }
     // Fetch fresh data in background
@@ -405,7 +506,7 @@ export default function HomeClient() {
           <div className="flex items-center gap-4 h-16 md:h-20">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
                   className="w-6 h-6 md:w-7 md:h-7 text-white"
                   viewBox="0 0 24 24"
@@ -420,13 +521,13 @@ export default function HomeClient() {
                   />
                 </svg>
               </div>
-              <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
 
             {/* Desktop Navigation - Centered */}
-            <div className="hidden ml-25 md:flex items-center justify-center flex-1">
+            <div className="hidden ml-30 md:flex items-center justify-center flex-1">
               <div className="flex items-center gap-8">
                 <a
                   href="#categories"
@@ -675,7 +776,7 @@ export default function HomeClient() {
                   </Link>
                   <Link
                     href="/register"
-                    className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
+                    className="px-6 py-2.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
                   >
                     Sign Up
                   </Link>
@@ -760,7 +861,7 @@ export default function HomeClient() {
             {/* Title */}
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
               Shop Smarter,
-              <span className="block bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 Live Better
               </span>
             </h1>
@@ -775,7 +876,7 @@ export default function HomeClient() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
               <Link
                 href="#featured"
-                className="group w-full sm:w-auto justify-center px-7 py-3.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
+                className="group w-full sm:w-auto justify-center px-7 py-3.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
               >
                 Shop Now
                 <svg
@@ -821,7 +922,7 @@ export default function HomeClient() {
               </div>
               <div className="hidden sm:block w-px h-12 bg-gray-300"></div>
               <div className="text-center">
-                <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                <div className="text-3xl font-bold bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                   Free
                 </div>
                 <div className="text-sm text-black  mt-1">Shipping</div>
@@ -891,15 +992,15 @@ export default function HomeClient() {
                 const allowedGradients = new Set([
                   "from-purple-500 to-purple-600",
                   "from-blue-500 to-blue-600",
-                  "from-green-500 to-green-600",
-                  "from-green-500 to-emerald-600",
+                  "from-emerald-600 via-teal-600 to-cyan-700",
+                  "from-emerald-600 via-teal-600 to-cyan-700",
                   "from-orange-500 to-orange-600",
                   "from-pink-500 to-rose-500",
-                  "from-teal-500 to-emerald-500",
+                  "from-emerald-600 via-teal-600 to-cyan-700",
                 ]);
                 const colorClass = allowedGradients.has(rawColor)
                   ? rawColor
-                  : "from-green-500 to-emerald-600";
+                  : "from-emerald-600 via-teal-600 to-cyan-700";
 
                 return (
                   <div
@@ -1125,7 +1226,7 @@ export default function HomeClient() {
                         onClick={() => handleAddToCart(product)}
                         className={`w-full py-3 rounded-xl font-semibold transition-all ${
                           product.inStock !== false && !addingToCart[product.id]
-                            ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg hover:scale-105' 
+                            ? 'bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white hover:shadow-lg hover:scale-105' 
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
                         disabled={product.inStock === false || addingToCart[product.id]}
@@ -1170,7 +1271,7 @@ export default function HomeClient() {
 
       {/* CTA Section */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800">
           <div className="absolute top-0 left-0 w-96 h-96 bg-white/10 rounded-full filter blur-3xl"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full filter blur-3xl"></div>
         </div>
@@ -1206,7 +1307,7 @@ export default function HomeClient() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center">
                   <svg
                     className="w-6 h-6 text-white"
                     viewBox="0 0 24 24"
@@ -1438,7 +1539,7 @@ export default function HomeClient() {
       {cartCount > 0 && (
         <Link
           href="/components/customer/cart"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-full shadow-xl hover:shadow-2xl transition-all"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-full shadow-xl hover:shadow-2xl transition-all"
         >
           <svg
             className="w-5 h-5"

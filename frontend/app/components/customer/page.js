@@ -12,7 +12,6 @@ export default function Page() {
   const [customerStats, setCustomerStats] = useState({
     totalOrders: 0,
     totalSpent: "$0.00",
-    loyaltyPoints: 0,
   });
   const [statsLoading, setStatsLoading] = useState(false); // Start with false for instant display
 
@@ -29,7 +28,6 @@ export default function Page() {
           setCustomerStats({
             totalOrders: parsedCache.total_orders || 0,
             totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
-            loyaltyPoints: parsedCache.loyalty_points || 0,
           });
           console.log("Customer stats loaded immediately from cache");
         } catch (e) {
@@ -55,14 +53,12 @@ export default function Page() {
             setCustomerStats({
               totalOrders: parsedCache.total_orders || 0,
               totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
-              loyaltyPoints: parsedCache.loyalty_points || 0,
             });
             setStatsLoading(false);
             
             console.log("Customer stats loaded from cache:", {
               totalOrders: parsedCache.total_orders || 0,
               totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
-              loyaltyPoints: parsedCache.loyalty_points || 0,
               cacheAge: Math.round(cacheAge / 1000) + "s"
             });
             
@@ -76,24 +72,23 @@ export default function Page() {
         }
 
         // Fetch fresh data
-        const response = await api.get("/orders/summary");
-        const stats = {
-          totalOrders: response.data.total_orders || 0,
-          totalSpent: `$${Number(response.data.total_spent || 0).toFixed(2)}`,
-          loyaltyPoints: 0, // TODO: Add loyalty points to API
+        const ordersResponse = await api.get("/orders/summary");
+
+        const freshStats = {
+          totalOrders: ordersResponse.data.total_orders || 0,
+          totalSpent: `$${Number(ordersResponse.data.total_spent || 0).toFixed(2)}`,
         };
 
-        setCustomerStats(stats);
+        setCustomerStats(freshStats);
 
         // Update cache
         localStorage.setItem(cacheKey, JSON.stringify({
-          total_orders: response.data.total_orders || 0,
-          total_spent: response.data.total_spent || 0,
-          loyalty_points: 0,
+          total_orders: ordersResponse.data.total_orders || 0,
+          total_spent: ordersResponse.data.total_spent || 0,
           cached_at: new Date().toISOString(),
         }));
 
-        console.log("Customer stats loaded fresh from API:", stats);
+        console.log("Customer stats loaded fresh from API:", freshStats);
 
       } catch (error) {
         console.error("Error fetching customer stats:", error);
@@ -164,7 +159,6 @@ export default function Page() {
     joinDate: joinDate,
     totalOrders: customerStats.totalOrders,
     totalSpent: customerStats.totalSpent,
-    loyaltyPoints: customerStats.loyaltyPoints,
     statsLoading: statsLoading,
   };
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\CustomerNotification;
 use App\Models\Product;
+use App\Models\Coupon;
 use App\Models\Shipment;
 use App\Models\UserAddress;
 use App\Mail\OrderDelivered;
@@ -66,7 +67,24 @@ class OrderController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $order = Order::select('id', 'user_id', 'status', 'total_amount', 'currency', 'payment_method', 'payment_status', 'paid_at', 'shipping_address', 'created_at')
+        $order = Order::select(
+            'id',
+            'user_id',
+            'status',
+            'total_amount',
+            'currency',
+            'payment_method',
+            'payment_status',
+            'paid_at',
+            'shipping_address',
+            'created_at',
+            'loyalty_points_used',
+            'loyalty_points_earned',
+            'discount_from_points',
+            'coupon_code',
+            'coupon_discount_percent',
+            'coupon_discount_amount'
+        )
             ->with([
                 'items' => function ($query) {
                     $query->select('id', 'order_id', 'product_id', 'quantity', 'unit_price', 'total_price')
@@ -95,14 +113,32 @@ class OrderController extends Controller
         $validated = $request->validate([
             'address_id' => 'required|integer',
             'payment_method' => 'nullable|string|in:COD,STRIPE',
+            'loyalty_points_to_use' => 'nullable|integer|min:0',
+            'coupon_code' => 'nullable|string|max:50',
         ]);
 
         $paymentMethod = $validated['payment_method'] ?? 'COD';
+        $loyaltyPointsToUse = $validated['loyalty_points_to_use'] ?? 0;
+        $couponCode = trim($validated['coupon_code'] ?? '');
 
         try {
-            $order = DB::transaction(function () use ($validated, $request, $paymentMethod) {
+            $order = DB::transaction(function () use ($validated, $request, $paymentMethod, $loyaltyPointsToUse, $couponCode) {
                 $user = $request->user();
                 $paymentStatus = $paymentMethod == 'STRIPE' ? 'PENDING' : 'UNPAID';
+                
+                // Validate and calculate loyalty points discount
+                $loyaltyDiscount = 0;
+                if ($loyaltyPointsToUse > 0) {
+                    $loyaltyService = app(\App\Services\LoyaltyService::class);
+                    try {
+                        $redemptionInfo = $loyaltyService->redeemPoints($user, $loyaltyPointsToUse);
+                        $loyaltyDiscount = $redemptionInfo['discount_amount'];
+                    } catch (\Exception $e) {
+                        throw ValidationException::withMessages([
+                            'loyalty_points' => [$e->getMessage()],
+                        ]);
+                    }
+                }
 
                 $address = UserAddress::where('user_id', $user->id)
                     ->where('id', $validated['address_id'])
@@ -174,7 +210,95 @@ class OrderController extends Controller
                     $total += $lineTotal;
                 }
 
-                $order->update(['total_amount' => $total]);
+                $subtotal = $total;
+                $order->update(['total_amount' => $subtotal]);
+
+                $couponDiscount = 0;
+                $normalizedCouponCode = $couponCode !== '' ? strtoupper($couponCode) : '';
+                if ($normalizedCouponCode !== '') {
+                    $coupon = Coupon::whereRaw('UPPER(code) = ?', [$normalizedCouponCode])
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$coupon) {
+                        throw ValidationException::withMessages([
+                            'coupon_code' => ['Invalid coupon code.'],
+                        ]);
+                    }
+
+                    $now = now();
+                    if (!$coupon->is_active) {
+                        throw ValidationException::withMessages([
+                            'coupon_code' => ['This coupon is not active.'],
+                        ]);
+                    }
+                    if ($coupon->starts_at && $now->lt($coupon->starts_at)) {
+                        throw ValidationException::withMessages([
+                            'coupon_code' => ['This coupon is not active yet.'],
+                        ]);
+                    }
+                    if ($coupon->ends_at && $now->gt($coupon->ends_at)) {
+                        throw ValidationException::withMessages([
+                            'coupon_code' => ['This coupon has expired.'],
+                        ]);
+                    }
+                    if ($subtotal < (float) $coupon->min_order_amount) {
+                        $minimum = number_format((float) $coupon->min_order_amount, 2);
+                        throw ValidationException::withMessages([
+                            'coupon_code' => ["Minimum order of \${$minimum} required."],
+                        ]);
+                    }
+                    if ($coupon->usage_limit !== null && $coupon->used_count >= $coupon->usage_limit) {
+                        throw ValidationException::withMessages([
+                            'coupon_code' => ['This coupon has reached its usage limit.'],
+                        ]);
+                    }
+
+                    $alreadyUsed = Order::where('user_id', $user->id)
+                        ->where(function ($query) use ($coupon, $normalizedCouponCode) {
+                            $query->where('coupon_id', $coupon->id)
+                                ->orWhere(function ($inner) use ($normalizedCouponCode) {
+                                    $inner->whereNull('coupon_id')
+                                        ->whereRaw('UPPER(coupon_code) = ?', [$normalizedCouponCode]);
+                                });
+                        })
+                        ->exists();
+
+                    if ($alreadyUsed) {
+                        throw ValidationException::withMessages([
+                            'coupon_code' => ['You have already used this coupon.'],
+                        ]);
+                    }
+
+                    $couponDiscount = round($subtotal * ((float) $coupon->discount_percent / 100), 2);
+                    $total = max(0, $subtotal - $couponDiscount);
+
+                    $order->update([
+                        'coupon_id' => $coupon->id,
+                        'coupon_code' => $coupon->code,
+                        'coupon_discount_percent' => $coupon->discount_percent,
+                        'coupon_discount_amount' => $couponDiscount,
+                        'total_amount' => $total,
+                    ]);
+
+                    $coupon->increment('used_count');
+                } else {
+                    $total = $subtotal;
+                }
+
+                // Apply loyalty points discount if any
+                if ($loyaltyPointsToUse > 0 && $loyaltyDiscount > 0) {
+                    $finalTotal = max(0, $total - $loyaltyDiscount);
+                    $order->update([
+                        'total_amount' => $finalTotal,
+                        'loyalty_points_used' => $loyaltyPointsToUse,
+                        'discount_from_points' => $loyaltyDiscount,
+                    ]);
+
+                    // Apply the redemption
+                    $loyaltyService = app(\App\Services\LoyaltyService::class);
+                    $loyaltyService->applyPointsToOrder($user, $loyaltyPointsToUse);
+                }
 
                 // Mark cart as checked out and clear items
                 $cart->markAsCheckedOut();
@@ -568,6 +692,12 @@ class OrderController extends Controller
         if ($statusChanged && $order->status === 'DELIVERED') {
             if ($order->user && $order->user->email) {
                 Mail::to($order->user->email)->queue(new OrderDelivered($order));
+            }
+            
+            // Award loyalty points when order is delivered
+            if ($order->loyalty_points_earned == 0) {
+                $loyaltyService = app(\App\Services\LoyaltyService::class);
+                $loyaltyService->awardPoints($order->user, $order);
             }
         }
 

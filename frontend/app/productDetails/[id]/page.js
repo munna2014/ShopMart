@@ -32,11 +32,47 @@ export default function ProductDetailsPage() {
 
   useEffect(() => {
     if (!id) return;
+    
     const fetchProduct = async () => {
       try {
+        // Check cache first
+        const cacheKey = `product_${id}`;
+        const cached = localStorage.getItem(cacheKey);
+        
+        if (cached) {
+          try {
+            const parsedCache = JSON.parse(cached);
+            const cacheAge = Date.now() - new Date(parsedCache.cached_at).getTime();
+            
+            // Use cache immediately for instant loading
+            setProduct(parsedCache.data);
+            setProductLoading(false);
+            
+            console.log("Product loaded from cache:", { id, cacheAge: Math.round(cacheAge / 1000) + "s" });
+            
+            // If cache is fresh (less than 5 minutes), don't fetch
+            if (cacheAge < 300000) {
+              return;
+            }
+          } catch (e) {
+            console.error("Failed to parse cached product:", e);
+          }
+        }
+        
+        // Fetch fresh data
         setProductLoading(true);
         const response = await api.get(`/products/${id}`);
-        setProduct(response.data.data || null);
+        const productData = response.data.data || null;
+        setProduct(productData);
+        
+        // Update cache
+        if (productData) {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            data: productData,
+            cached_at: new Date().toISOString(),
+          }));
+          console.log("Product cached:", { id });
+        }
       } catch (error) {
         console.error("Failed to load product:", error);
         setProduct(null);
@@ -50,15 +86,59 @@ export default function ProductDetailsPage() {
 
   useEffect(() => {
     if (!id) return;
+    
     const fetchReviews = async () => {
       try {
+        // Check cache first
+        const cacheKey = `product_reviews_${id}`;
+        const cached = localStorage.getItem(cacheKey);
+        
+        if (cached) {
+          try {
+            const parsedCache = JSON.parse(cached);
+            const cacheAge = Date.now() - new Date(parsedCache.cached_at).getTime();
+            
+            // Use cache immediately for instant loading
+            setReviews(parsedCache.reviews || []);
+            setReviewSummary({
+              average: parsedCache.average_rating || 0,
+              count: parsedCache.review_count || 0,
+            });
+            setReviewsLoading(false);
+            
+            console.log("Reviews loaded from cache:", { id, count: parsedCache.review_count, cacheAge: Math.round(cacheAge / 1000) + "s" });
+            
+            // If cache is fresh (less than 2 minutes), don't fetch
+            if (cacheAge < 120000) {
+              return;
+            }
+          } catch (e) {
+            console.error("Failed to parse cached reviews:", e);
+          }
+        }
+        
+        // Fetch fresh data
         setReviewsLoading(true);
         const response = await api.get(`/products/${id}/reviews`);
-        setReviews(response.data.reviews || []);
+        const reviewsData = response.data.reviews || [];
+        const avgRating = response.data.average_rating || 0;
+        const reviewCount = response.data.review_count || 0;
+        
+        setReviews(reviewsData);
         setReviewSummary({
-          average: response.data.average_rating || 0,
-          count: response.data.review_count || 0,
+          average: avgRating,
+          count: reviewCount,
         });
+        
+        // Update cache
+        localStorage.setItem(cacheKey, JSON.stringify({
+          reviews: reviewsData,
+          average_rating: avgRating,
+          review_count: reviewCount,
+          cached_at: new Date().toISOString(),
+        }));
+        
+        console.log("Reviews cached:", { id, count: reviewCount });
       } catch (error) {
         console.error("Failed to load reviews:", error);
         setReviews([]);
@@ -189,12 +269,30 @@ export default function ProductDetailsPage() {
         });
       }
 
+      // Invalidate reviews cache
+      const cacheKey = `product_reviews_${id}`;
+      localStorage.removeItem(cacheKey);
+      console.log("Reviews cache invalidated after submission");
+
       const response = await api.get(`/products/${id}/reviews`);
-      setReviews(response.data.reviews || []);
+      const reviewsData = response.data.reviews || [];
+      const avgRating = response.data.average_rating || 0;
+      const reviewCount = response.data.review_count || 0;
+      
+      setReviews(reviewsData);
       setReviewSummary({
-        average: response.data.average_rating || 0,
-        count: response.data.review_count || 0,
+        average: avgRating,
+        count: reviewCount,
       });
+      
+      // Update cache with fresh data
+      localStorage.setItem(cacheKey, JSON.stringify({
+        reviews: reviewsData,
+        average_rating: avgRating,
+        review_count: reviewCount,
+        cached_at: new Date().toISOString(),
+      }));
+      
       resetReviewForm();
     } catch (error) {
       setReviewError(
@@ -219,12 +317,30 @@ export default function ProductDetailsPage() {
     if (!confirm("Delete this review?")) return;
     try {
       await api.delete(`/reviews/${reviewId}`);
+      
+      // Invalidate reviews cache
+      const cacheKey = `product_reviews_${id}`;
+      localStorage.removeItem(cacheKey);
+      console.log("Reviews cache invalidated after deletion");
+      
       const response = await api.get(`/products/${id}/reviews`);
-      setReviews(response.data.reviews || []);
+      const reviewsData = response.data.reviews || [];
+      const avgRating = response.data.average_rating || 0;
+      const reviewCount = response.data.review_count || 0;
+      
+      setReviews(reviewsData);
       setReviewSummary({
-        average: response.data.average_rating || 0,
-        count: response.data.review_count || 0,
+        average: avgRating,
+        count: reviewCount,
       });
+      
+      // Update cache with fresh data
+      localStorage.setItem(cacheKey, JSON.stringify({
+        reviews: reviewsData,
+        average_rating: avgRating,
+        review_count: reviewCount,
+        cached_at: new Date().toISOString(),
+      }));
     } catch (error) {
       alert(error.response?.data?.message || "Failed to delete review.");
     }
@@ -249,7 +365,7 @@ export default function ProductDetailsPage() {
         <div className="max-w-7xl mx-auto px-3 sm:px-4">
           <div className="flex items-center justify-between h-12">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-lg flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 2L3 6V20c0 1.1.9 2 2 2h14a2 2 0 002-2V6l-3-4H6zM3 6h18" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -305,7 +421,7 @@ export default function ProductDetailsPage() {
                       disabled={stockCount <= 0 || addingToCart}
                       className={`flex-1 py-2.5 rounded-lg font-semibold text-sm ${
                         stockCount > 0 && !addingToCart
-                          ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white"
+                          ? "bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       }`}
                     >
@@ -319,10 +435,10 @@ export default function ProductDetailsPage() {
 
                 {/* Product Info Section */}
                 <div className="p-4">
-                  <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">
+                  <p className="text-xs text-green-600 uppercase tracking-wide mb-1">
                     {product.category?.name || "Uncategorized"}
                   </p>
-                  <h1 className="text-lg font-bold text-gray-900 mb-2 leading-tight">{product.name}</h1>
+                  <h1 className="text-xl font-bold text-gray-900 mb-2 leading-tight">{product.name}</h1>
                   
                   {/* Rating */}
                   <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100">
@@ -356,7 +472,7 @@ export default function ProductDetailsPage() {
 
                   {/* Delivery Info */}
                   <div className="bg-blue-50 rounded-lg p-2.5 mb-3">
-                    <p className="text-xs font-semibold text-blue-800">🚚 Estimated delivery: Aug 12-14</p>
+                    <p className="text-xs font-semibold text-blue-800">🚚 Estimated delivery: within 3-5 days</p>
                     <p className="text-xs text-blue-600">Shipping: free</p>
                   </div>
 
@@ -405,29 +521,29 @@ export default function ProductDetailsPage() {
             </div>
 
             {/* Product Details, Highlights & Reviews - 3 columns */}
-            <div className="bg-white rounded-lg px-3 py-2">
-              <div className="grid grid-cols-1 md:grid-cols-[auto_auto_1fr] md:gap-x-6">
+            <div className="bg-white rounded-lg px-6 py-6">
+              <div className="grid  grid-cols-1 md:grid-cols-[auto_auto_1fr] md:gap-x-6">
                 {/* Product Details */}
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Product Details</h2>
-                  <table className="text-xs">
+                  <h2 className="text-xl font-bold text-gray-900 mb-3">Product Details</h2>
+                  <table className="text-sm">
                     <tbody>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">Product Type</td><td className="py-0.5 text-gray-800">{product.category?.name || "Uncategorized"}</td></tr>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">Brand</td><td className="py-0.5 text-gray-800">{product.brand || "Not specified"}</td></tr>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">Color</td><td className="py-0.5 text-gray-800">{product.color || "Not specified"}</td></tr>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">Material</td><td className="py-0.5 text-gray-800">{product.material || "Not specified"}</td></tr>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">Size</td><td className="py-0.5 text-gray-800">{product.size || "Not specified"}</td></tr>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">Weight</td><td className="py-0.5 text-gray-800">{product.weight || "Not specified"}</td></tr>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">Dimensions</td><td className="py-0.5 text-gray-800">{product.dimensions || "Not specified"}</td></tr>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">SKU</td><td className="py-0.5 text-gray-800">{product.sku || "Not specified"}</td></tr>
-                      <tr><td className="py-0.5 text-gray-500 pr-3">Availability</td><td className="py-0.5 text-gray-800">{stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">Product Type</td><td className="py-1 text-gray-800 font-bold">{product.category?.name || "Uncategorized"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">Brand</td><td className="py-1 text-gray-800 font-bold">{product.brand || "Not specified"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">Color</td><td className="py-1 text-gray-800 font-bold">{product.color || "Not specified"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">Material</td><td className="py-1 text-gray-800 font-bold">{product.material || "Not specified"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">Size</td><td className="py-1 text-gray-800 font-bold">{product.size || "Not specified"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">Weight</td><td className="py-1 text-gray-800 font-bold">{product.weight || "Not specified"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">Dimensions</td><td className="py-1 text-gray-800 font-bold">{product.dimensions || "Not specified"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">SKU</td><td className="py-1 text-gray-800 font-bold">{product.sku || "Not specified"}</td></tr>
+                      <tr><td className="py-1 text-gray-600 pr-8">Availability</td><td className="py-1 text-gray-800 font-bold">{stockCount > 0 ? `${stockCount} in stock` : "Out of stock"}</td></tr>
                     </tbody>
                   </table>
                 </div>
                 {/* Highlights */}
                 <div className="ml-10">
-                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Highlights</h2>
-                  <ul className="text-xs text-gray-700 space-y-3">
+                  <h2 className="text-xl font-bold text-gray-900 mb-3">Highlights</h2>
+                  <ul className="text-xs font-bold text-gray-700 space-y-5">
                     <li className="flex gap-1.5"><span className="text-green-500">✓</span>{product.highlight_1 || "Quality build for everyday use"}</li>
                     <li className="flex gap-1.5"><span className="text-green-500">✓</span>{product.highlight_2 || "Comfortable, reliable, and durable"}</li>
                     <li className="flex gap-1.5"><span className="text-green-500">✓</span>{product.highlight_3 || "Designed to fit modern lifestyles"}</li>
@@ -436,17 +552,17 @@ export default function ProductDetailsPage() {
                 </div>
                 {/* Reviews */}
                 <div className="ml-10">
-                  <h2 className="text-sm font-semibold text-gray-900 mb-1">Reviews</h2>
+                  <h2 className="text-xl font-bold text-gray-900 ml-2 mb-5">Reviews</h2>
                   {isAuthenticated ? (
                     <form onSubmit={handleReviewSubmit} className="bg-gray-50 rounded p-2 mb-2">
-                      <select value={reviewForm.rating} onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))} className="w-40 px-2 py-1 border border-gray-300 rounded text-xs mb-1">
+                      <select value={reviewForm.rating} onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: Number(e.target.value) }))} className="w-40 px-2 py-1 border border-gray-300 rounded text-xs mb-3">
                         {[5, 4, 3, 2, 1].map((v) => <option key={v} value={v}>{"★".repeat(v)}{"☆".repeat(5-v)} {v} Stars</option>)}
                       </select>
-                      <input type="text" value={reviewForm.title} onChange={(e) => setReviewForm((prev) => ({ ...prev, title: e.target.value }))} className="w-60 px-2 py-1 flex border border-gray-300 rounded text-xs mb-1" placeholder="Title (optional)" />
-                      <textarea rows="2" value={reviewForm.body} onChange={(e) => setReviewForm((prev) => ({ ...prev, body: e.target.value }))} className="w-full h-20 px-2 py-1 border border-gray-300 rounded text-xs mb-2" placeholder="Share your experience" />
+                      <input type="text" value={reviewForm.title} onChange={(e) => setReviewForm((prev) => ({ ...prev, title: e.target.value }))} className="w-60 px-2 py-1 flex border border-gray-300 rounded text-xs mb-3" placeholder="Title (optional)" />
+                      <textarea rows="2" value={reviewForm.body} onChange={(e) => setReviewForm((prev) => ({ ...prev, body: e.target.value }))} className="w-full h-20 px-2 py-1 border border-gray-300 rounded text-xs mb-3" placeholder="Share your experience" />
                       {reviewError && <p className="text-xs text-red-600 mb-1">{reviewError}</p>}
                       <div className="flex gap-1">
-                        <button type="submit" disabled={reviewSubmitting} className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-60">
+                        <button type="submit" disabled={reviewSubmitting} className="px-3 py-2 bg-green-600 text-white rounded text-sm font-medium hover:bg-green-700 disabled:opacity-60">
                           {reviewSubmitting ? "..." : reviewEditingId ? "Update" : "Submit Review"}
                         </button>
                         {reviewEditingId && <button type="button" onClick={resetReviewForm} className="px-2 py-1 border border-gray-300 rounded text-xs">Cancel</button>}
@@ -461,7 +577,7 @@ export default function ProductDetailsPage() {
 
             {/* Customer Reviews List - Separate Section */}
             <div className="bg-white rounded-lg px-3 py-2">
-              <h2 className="text-sm font-semibold text-gray-900 mb-2">Customer Reviews</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Customer Reviews</h2>
               {reviewsLoading ? (
                 <p className="text-xs text-gray-500 text-center py-2">Loading...</p>
               ) : reviews.length === 0 ? (

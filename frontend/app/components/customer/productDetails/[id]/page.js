@@ -247,7 +247,7 @@ export default function ProductDetailsPage({ params }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
             <Link href="/components/customer" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
                   className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                   viewBox="0 0 24 24"
@@ -262,7 +262,7 @@ export default function ProductDetailsPage({ params }) {
                   />
                 </svg>
               </div>
-              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-lg sm:text-xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -301,7 +301,7 @@ export default function ProductDetailsPage({ params }) {
             </p>
             <Link
               href="/products"
-              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
             >
               Back to Products
             </Link>
@@ -357,7 +357,7 @@ export default function ProductDetailsPage({ params }) {
                 </div>
               </div>
               <div>
-                <p className="text-sm text-green-600 font-semibold uppercase tracking-wide mb-2">
+                <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-2">
                   {product.category?.name || "Uncategorized"}
                 </p>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
@@ -620,7 +620,7 @@ export default function ProductDetailsPage({ params }) {
                 disabled={stockCount <= 0 || addingToCart}
                 className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
                   stockCount > 0 && !addingToCart
-                    ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:shadow-lg"
+                    ? "bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white hover:shadow-lg"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
               >

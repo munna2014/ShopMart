@@ -41,7 +41,6 @@ export function AuthProvider({ children }) {
       localStorage.setItem(cacheKey, JSON.stringify({
         total_orders: response.data.total_orders || 0,
         total_spent: response.data.total_spent || 0,
-        loyalty_points: 0,
         cached_at: new Date().toISOString(),
       }));
     } catch (error) {

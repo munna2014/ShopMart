@@ -15,6 +15,7 @@ const VALID_TABS = [
   "notifications",
   "addresses",
   "settings",
+  "loyalty",
 ];
 
 export default function CustomerView({ customer: initialCustomer }) {
@@ -69,6 +70,16 @@ export default function CustomerView({ customer: initialCustomer }) {
     is_default: false
   });
   const [addressErrors, setAddressErrors] = useState({});
+
+  const [loyaltyBalance, setLoyaltyBalance] = useState({
+    points: 0,
+    total_earned: 0,
+    total_redeemed: 0,
+    available_discount: 0,
+    can_redeem: false,
+  });
+  const [loyaltyTransactions, setLoyaltyTransactions] = useState([]);
+  const [loyaltyLoading, setLoyaltyLoading] = useState(false);
 
   const [profilePictureUploading, setProfilePictureUploading] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -307,6 +318,11 @@ export default function CustomerView({ customer: initialCustomer }) {
       icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
     },
     {
+      id: "loyalty",
+      label: "Loyalty Rewards",
+      icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+    },
+    {
       id: "settings",
       label: "Settings",
       icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
@@ -428,6 +444,13 @@ export default function CustomerView({ customer: initialCustomer }) {
   useEffect(() => {
     if (activeTab === "notifications") {
       fetchNotifications();
+    }
+  }, [activeTab]);
+
+  // Fetch loyalty data when Loyalty tab is active
+  useEffect(() => {
+    if (activeTab === "loyalty") {
+      fetchLoyaltyData();
     }
   }, [activeTab]);
 
@@ -663,6 +686,30 @@ export default function CustomerView({ customer: initialCustomer }) {
       setCategories([]);
     } finally {
       setCategoriesLoading(false);
+    }
+  };
+
+  const fetchLoyaltyData = async () => {
+    try {
+      setLoyaltyLoading(true);
+      const [balanceRes, historyRes] = await Promise.all([
+        api.get('/loyalty/balance'),
+        api.get('/loyalty/history?limit=50')
+      ]);
+      
+      setLoyaltyBalance(balanceRes.data.data || {
+        points: 0,
+        total_earned: 0,
+        total_redeemed: 0,
+        available_discount: 0,
+        can_redeem: false,
+      });
+      
+      setLoyaltyTransactions(historyRes.data.transactions || []);
+    } catch (error) {
+      console.error('Error fetching loyalty data:', error);
+    } finally {
+      setLoyaltyLoading(false);
     }
   };
 
@@ -2234,6 +2281,89 @@ export default function CustomerView({ customer: initialCustomer }) {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Loyalty Tab */}
+          {activeTab === "loyalty" && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl p-8 text-white">
+                <h2 className="text-2xl font-bold mb-2">Loyalty Rewards</h2>
+                <p className="text-white/90 mb-6">Earn 5% points on every purchase!</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+                    <div className="text-4xl font-bold mb-2">{loyaltyBalance.points}</div>
+                    <div className="text-white/80">Available Points</div>
+                  </div>
+                  
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+                    <div className="text-4xl font-bold mb-2">${loyaltyBalance.available_discount}</div>
+                    <div className="text-white/80">Available Discount</div>
+                  </div>
+                  
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+                    <div className="text-4xl font-bold mb-2">{loyaltyBalance.total_earned}</div>
+                    <div className="text-white/80">Total Earned</div>
+                  </div>
+                </div>
+                
+                <div className="mt-6 bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                  <p className="text-sm">
+                    💡 <strong>How it works:</strong> Earn 5% points on every order. 
+                    Redeem 100 points for $10 off your next purchase!
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Transaction History</h3>
+                
+                {loyaltyLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                  </div>
+                ) : loyaltyTransactions.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-lg font-medium">No transactions yet</p>
+                    <p className="text-sm">Start shopping to earn loyalty points!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {loyaltyTransactions.map((transaction) => (
+                      <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            transaction.type === 'earned' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {transaction.type === 'earned' ? '+' : '-'}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">{transaction.description}</div>
+                            <div className="text-sm text-gray-500">
+                              {new Date(transaction.created_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        <div className={`text-lg font-bold ${
+                          transaction.type === 'earned' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {transaction.type === 'earned' ? '+' : ''}{transaction.points} pts
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

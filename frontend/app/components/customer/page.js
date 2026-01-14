@@ -76,24 +76,28 @@ export default function Page() {
         }
 
         // Fetch fresh data
-        const response = await api.get("/orders/summary");
-        const stats = {
-          totalOrders: response.data.total_orders || 0,
-          totalSpent: `$${Number(response.data.total_spent || 0).toFixed(2)}`,
-          loyaltyPoints: 0, // TODO: Add loyalty points to API
+        const [ordersResponse, loyaltyResponse] = await Promise.all([
+          api.get("/orders/summary"),
+          api.get("/loyalty/balance").catch(() => ({ data: { data: { points: 0 } } }))
+        ]);
+
+        const freshStats = {
+          totalOrders: ordersResponse.data.total_orders || 0,
+          totalSpent: `$${Number(ordersResponse.data.total_spent || 0).toFixed(2)}`,
+          loyaltyPoints: loyaltyResponse.data.data?.points || 0,
         };
 
-        setCustomerStats(stats);
+        setCustomerStats(freshStats);
 
         // Update cache
         localStorage.setItem(cacheKey, JSON.stringify({
-          total_orders: response.data.total_orders || 0,
-          total_spent: response.data.total_spent || 0,
-          loyalty_points: 0,
+          total_orders: ordersResponse.data.total_orders || 0,
+          total_spent: ordersResponse.data.total_spent || 0,
+          loyalty_points: loyaltyResponse.data.data?.points || 0,
           cached_at: new Date().toISOString(),
         }));
 
-        console.log("Customer stats loaded fresh from API:", stats);
+        console.log("Customer stats loaded fresh from API:", freshStats);
 
       } catch (error) {
         console.error("Error fetching customer stats:", error);

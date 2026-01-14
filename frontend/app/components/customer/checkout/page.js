@@ -25,6 +25,13 @@ export default function CheckoutPage() {
   const [orderError, setOrderError] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [loyaltyPoints, setLoyaltyPoints] = useState({
+    available: 0,
+    toUse: 0,
+    discount: 0,
+    canRedeem: false,
+  });
+  const [showLoyaltySection, setShowLoyaltySection] = useState(false);
   const [stripeReady, setStripeReady] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState("");
@@ -103,6 +110,28 @@ export default function CheckoutPage() {
     fetchAddresses();
   }, [isAuthenticated, isOrderView]);
 
+  // Fetch loyalty balance
+  useEffect(() => {
+    const fetchLoyaltyBalance = async () => {
+      if (!isAuthenticated || isOrderView) return;
+      try {
+        const response = await api.get('/loyalty/balance');
+        const data = response.data.data;
+        setLoyaltyPoints({
+          available: data.points || 0,
+          toUse: 0,
+          discount: 0,
+          canRedeem: data.can_redeem || false,
+        });
+        setShowLoyaltySection(data.points >= 100);
+      } catch (error) {
+        console.error('Error fetching loyalty balance:', error);
+      }
+    };
+
+    fetchLoyaltyBalance();
+  }, [isAuthenticated, isOrderView]);
+
   useEffect(() => {
     const fetchOrderDetails = async () => {
       if (!isAuthenticated || !isOrderView || !orderIdParam) return;
@@ -127,6 +156,7 @@ export default function CheckoutPage() {
       const total = Number(orderDetails.total_amount || 0);
       return {
         subtotal: total,
+        loyaltyDiscount: 0,
         shipping: 0,
         total,
       };
@@ -135,12 +165,15 @@ export default function CheckoutPage() {
       const price = Number(item.price || 0);
       return sum + price * (item.quantity || 0);
     }, 0);
+    const loyaltyDiscount = loyaltyPoints.discount || 0;
+    const finalTotal = Math.max(0, subtotal - loyaltyDiscount);
     return {
       subtotal,
+      loyaltyDiscount,
       shipping: 0,
-      total: subtotal,
+      total: finalTotal,
     };
-  }, [cart, isOrderView, orderDetails]);
+  }, [cart, isOrderView, orderDetails, loyaltyPoints.discount]);
 
   const loadStripeScript = (publishableKey) =>
     new Promise((resolve, reject) => {
@@ -254,6 +287,33 @@ export default function CheckoutPage() {
     resetStripe();
   }, [paymentMethod, isOrderView, showOrderPaymentForm]);
 
+  const handleLoyaltyPointsChange = async (points) => {
+    if (points < 0 || points > loyaltyPoints.available) return;
+    if (points > 0 && points % 100 !== 0) {
+      alert('Points must be in multiples of 100');
+      return;
+    }
+
+    try {
+      if (points === 0) {
+        setLoyaltyPoints(prev => ({ ...prev, toUse: 0, discount: 0 }));
+        return;
+      }
+
+      const response = await api.post('/loyalty/calculate-redemption', { points });
+      const data = response.data.data;
+      
+      setLoyaltyPoints(prev => ({
+        ...prev,
+        toUse: points,
+        discount: data.discount_amount,
+      }));
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to calculate discount');
+      setLoyaltyPoints(prev => ({ ...prev, toUse: 0, discount: 0 }));
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (isOrderView) {
       return;
@@ -279,6 +339,7 @@ export default function CheckoutPage() {
       const response = await api.post("/orders", {
         address_id: selectedAddressId,
         payment_method: paymentMethod,
+        loyalty_points_to_use: loyaltyPoints.toUse,
       });
       const order = response.data.order;
 
@@ -653,6 +714,51 @@ export default function CheckoutPage() {
             </div>
 
             <div className="space-y-4">
+              {/* Loyalty Points Section */}
+              {!isOrderView && showLoyaltySection && (
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border-2 border-green-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Use Loyalty Points</h3>
+                      <p className="text-sm text-gray-600">You have {loyaltyPoints.available} points available</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-green-600">${loyaltyPoints.discount}</div>
+                      <div className="text-xs text-gray-500">Discount</div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Points to use (multiples of 100)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={loyaltyPoints.available}
+                        step="100"
+                        value={loyaltyPoints.toUse}
+                        onChange={(e) => handleLoyaltyPointsChange(parseInt(e.target.value) || 0)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        placeholder="Enter points (e.g., 100, 200, 300)"
+                      />
+                    </div>
+                    
+                    <div className="bg-white rounded-lg p-3 text-sm">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-600">100 points =</span>
+                        <span className="font-semibold">$10 discount</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Your discount:</span>
+                        <span className="font-bold text-green-600">${loyaltyPoints.discount}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">
                   {isOrderView ? "Order Status" : "Payment Method"}
@@ -763,6 +869,12 @@ export default function CheckoutPage() {
                     <span className="text-gray-600">Subtotal</span>
                     <span className="font-semibold text-gray-900">${totals.subtotal.toFixed(2)}</span>
                   </div>
+                  {!isOrderView && totals.loyaltyDiscount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Loyalty Discount</span>
+                      <span className="font-semibold text-green-600">-${totals.loyaltyDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-gray-600">Shipping</span>
                     <span className="font-semibold text-green-600">Free</span>

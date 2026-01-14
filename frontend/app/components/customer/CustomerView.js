@@ -14,6 +14,7 @@ const VALID_TABS = [
   "orders",
   "notifications",
   "addresses",
+  "coupons",
   "settings",
   "loyalty",
 ];
@@ -80,6 +81,11 @@ export default function CustomerView({ customer: initialCustomer }) {
   });
   const [loyaltyTransactions, setLoyaltyTransactions] = useState([]);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
+  const [coupons, setCoupons] = useState([]);
+  const [usedCoupons, setUsedCoupons] = useState([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponsError, setCouponsError] = useState("");
+  const [couponsSubtotal, setCouponsSubtotal] = useState(0);
 
   const [profilePictureUploading, setProfilePictureUploading] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -318,6 +324,11 @@ export default function CustomerView({ customer: initialCustomer }) {
       icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z",
     },
     {
+      id: "coupons",
+      label: "My Coupons",
+      icon: "M10 3a1 1 0 00-1 1v2a2 2 0 00-2 2H5a1 1 0 000 2h2a2 2 0 002 2v2a1 1 0 002 0v-2a2 2 0 002-2h6a2 2 0 002-2h2a1 1 0 100-2h-2a2 2 0 00-2-2h-6a2 2 0 00-2-2V4a1 1 0 00-1-1z",
+    },
+    {
       id: "loyalty",
       label: "Loyalty Rewards",
       icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
@@ -451,6 +462,13 @@ export default function CustomerView({ customer: initialCustomer }) {
   useEffect(() => {
     if (activeTab === "loyalty") {
       fetchLoyaltyData();
+    }
+  }, [activeTab]);
+
+  // Fetch coupons when Coupons tab is active
+  useEffect(() => {
+    if (activeTab === "coupons") {
+      fetchCoupons();
     }
   }, [activeTab]);
 
@@ -713,6 +731,24 @@ export default function CustomerView({ customer: initialCustomer }) {
     }
   };
 
+  const fetchCoupons = async () => {
+    try {
+      setCouponsLoading(true);
+      setCouponsError("");
+      const response = await api.get("/coupons/active");
+      setCoupons(response.data.coupons || []);
+      setUsedCoupons(response.data.used_coupons || []);
+      setCouponsSubtotal(Number(response.data.cart_subtotal || 0));
+    } catch (error) {
+      console.error("Error fetching coupons:", error);
+      setCoupons([]);
+      setUsedCoupons([]);
+      setCouponsError(error.response?.data?.message || "Failed to load coupons.");
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
   const toggleOrderDetails = (orderId) => {
     setExpandedOrderId((prev) => (prev === orderId ? null : orderId));
   };
@@ -720,6 +756,27 @@ export default function CustomerView({ customer: initialCustomer }) {
   const formatOrderLabel = (orderId) => {
     if (!orderId) return "Order";
     return `#ORD-${String(orderId).padStart(5, "0")}`;
+  };
+
+  const formatCouponDate = (value) => {
+    if (!value) return "N/A";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const getCouponStatusClasses = (status) => {
+    if (status === "eligible") {
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    }
+    if (status === "used") {
+      return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+    return "bg-amber-100 text-amber-700 border-amber-200";
   };
 
   const handleNotificationClick = async (notification) => {
@@ -1220,7 +1277,7 @@ export default function CustomerView({ customer: initialCustomer }) {
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
                   className="w-6 h-6 md:w-7 md:h-7 text-white"
                   viewBox="0 0 24 24"
@@ -1235,7 +1292,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                   />
                 </svg>
               </div>
-              <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -1352,7 +1409,7 @@ export default function CustomerView({ customer: initialCustomer }) {
 
       {/* Profile Header */}
       <div className="pt-16 md:pt-20">
-        <div className="relative overflow-hidden bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white">
+        <div className="relative overflow-hidden bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white">
           <div className="absolute inset-0 opacity-30">
             <div className="absolute -top-10 -left-10 w-48 h-48 bg-white/20 rounded-full blur-2xl"></div>
             <div className="absolute top-10 right-8 w-56 h-56 bg-white/10 rounded-full blur-3xl"></div>
@@ -1435,16 +1492,6 @@ export default function CustomerView({ customer: initialCustomer }) {
                     </div>
                     <div className="text-xs uppercase tracking-wide text-white/80">Total Spent</div>
                   </div>
-                  <div className="bg-white/20 backdrop-blur-sm px-5 py-3 rounded-xl shadow-lg">
-                    <div className="text-xl sm:text-2xl font-bold">
-                      {customer.statsLoading ? (
-                        <div className="animate-pulse bg-white/30 h-8 w-6 rounded"></div>
-                      ) : (
-                        customer.loyaltyPoints
-                      )}
-                    </div>
-                    <div className="text-xs uppercase tracking-wide text-white/80">Points</div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -1464,8 +1511,8 @@ export default function CustomerView({ customer: initialCustomer }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {/* Profile Tab */}
           {activeTab === "profile" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6">
+              <div className="space-y-6">
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-2xl p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -1539,7 +1586,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                   <button 
                     onClick={handleSaveProfile}
                     disabled={profileSaving}
-                    className={`mt-6 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all ${
+                    className={`mt-6 px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all ${
                       profileSaving ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
@@ -1555,43 +1602,6 @@ export default function CustomerView({ customer: initialCustomer }) {
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl shadow-2xl p-6 text-white relative overflow-hidden">
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-                  <h3 className="text-xl font-bold mb-4">Loyalty Rewards</h3>
-                  <div className="text-4xl font-bold mb-2">
-                    {customer.statsLoading ? (
-                      <div className="animate-pulse bg-white/30 h-12 w-12 rounded"></div>
-                    ) : (
-                      customer.loyaltyPoints
-                    )}
-                  </div>
-                  <p className="text-white/80 mb-4">Points Available</p>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 mb-4">
-                    <div className="text-sm mb-1">Next Reward</div>
-                    <div className="w-full bg-white/30 rounded-full h-2 mb-2">
-                      <div
-                        className="bg-white h-2 rounded-full transition-all"
-                        style={{ 
-                          width: `${Math.min((customer.loyaltyPoints % 100), 100)}%`
-                        }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-white/80">
-                      {customer.loyaltyPoints >= 100 
-                        ? "You can redeem points!" 
-                        : `${100 - (customer.loyaltyPoints % 100)} points to go`
-                      }
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setActiveTab("loyalty")}
-                    className="w-full bg-white text-green-600 py-3 rounded-lg font-semibold hover:shadow-lg transition-all"
-                  >
-                    Redeem Points
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
@@ -2047,7 +2057,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                 </h2>
                 <button 
                   onClick={handleAddAddress}
-                  className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all"
+                  className="px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all"
                 >
                   + Add New Address
                 </button>
@@ -2229,7 +2239,7 @@ export default function CustomerView({ customer: initialCustomer }) {
                   <button 
                     onClick={handleUpdatePassword}
                     disabled={passwordSaving}
-                    className={`w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all ${
+                    className={`w-full px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg font-semibold hover:shadow-lg hover:scale-105 transition-all ${
                       passwordSaving ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
@@ -2293,33 +2303,186 @@ export default function CustomerView({ customer: initialCustomer }) {
             </div>
           )}
 
+          {/* Coupons Tab */}
+          {activeTab === "coupons" && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-2xl p-8 text-white shadow-lg">
+                <h2 className="text-2xl font-bold mb-2">My Coupons</h2>
+                <p className="text-emerald-50/90">
+                  Browse active coupons and see eligibility for your current cart.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                  <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20">
+                    Cart subtotal: ${Number(couponsSubtotal || 0).toFixed(2)}
+                  </span>
+                  <Link
+                    href="/components/customer/checkout"
+                    className="px-3 py-1 rounded-full bg-white text-emerald-700 font-semibold hover:bg-emerald-50 transition-colors"
+                  >
+                    Go to checkout
+                  </Link>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">Active Coupons</h3>
+                </div>
+                {couponsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+                  </div>
+                ) : couponsError ? (
+                  <div className="text-center py-8 text-rose-600">
+                    {couponsError}
+                  </div>
+                ) : coupons.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-lg font-medium">No active coupons</p>
+                    <p className="text-sm">Check back later for new offers.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {coupons.map((coupon) => (
+                      <div
+                        key={coupon.id}
+                        className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 p-4 border border-gray-100 rounded-xl bg-gray-50"
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-bold text-gray-900">
+                              {coupon.code}
+                            </span>
+                            <span
+                              className={`text-xs font-semibold px-2 py-1 rounded-full border ${getCouponStatusClasses(
+                                coupon.status
+                              )}`}
+                            >
+                              {coupon.status_label}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {Number(coupon.discount_percent || 0).toFixed(2)}% off | Min $
+                            {Number(coupon.min_order_amount || 0).toFixed(2)} | Valid{" "}
+                            {formatCouponDate(coupon.starts_at)} - {formatCouponDate(coupon.ends_at)}
+                          </div>
+                          {coupon.reason && (
+                            <div className="text-xs text-amber-700 mt-1">
+                              {coupon.reason}
+                            </div>
+                          )}
+                          {!coupon.reason && coupon.min_order_remaining > 0 && (
+                            <div className="text-xs text-amber-700 mt-1">
+                              Spend ${Number(coupon.min_order_remaining).toFixed(2)} more to unlock.
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-sm font-semibold text-emerald-700">
+                          {coupon.eligible ? "Eligible now" : "Not eligible"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900">Used Coupons</h3>
+                </div>
+                {couponsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+                  </div>
+                ) : usedCoupons.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-lg font-medium">No used coupons yet</p>
+                    <p className="text-sm">Apply a coupon at checkout to see it here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {usedCoupons.map((coupon) => {
+                      const minValue = coupon.min_order_amount;
+                      const minLabel =
+                        minValue === null || minValue === undefined
+                          ? "Min N/A"
+                          : `Min $${Number(minValue).toFixed(2)}`;
+                      const hasDates = coupon.starts_at || coupon.ends_at;
+                      const validLabel = hasDates
+                        ? `Valid ${formatCouponDate(coupon.starts_at)} - ${formatCouponDate(coupon.ends_at)}`
+                        : "Valid N/A";
+                      const usedLabel = coupon.used_at
+                        ? `Used on ${formatCouponDate(coupon.used_at)}`
+                        : "Used";
+                      const timesUsed =
+                        coupon.times_used && coupon.times_used > 1
+                          ? ` (${coupon.times_used}x)`
+                          : "";
+                      return (
+                        <div
+                          key={`${coupon.id || coupon.code}-used`}
+                          className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 p-4 border border-gray-100 rounded-xl bg-gray-50"
+                        >
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-bold text-gray-900">
+                                {coupon.code}
+                              </span>
+                              <span
+                                className={`text-xs font-semibold px-2 py-1 rounded-full border ${getCouponStatusClasses(
+                                  "used"
+                                )}`}
+                              >
+                                Used
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {Number(coupon.discount_percent || 0).toFixed(2)}% off | {minLabel} | {validLabel}
+                            </div>
+                            <div className="text-xs text-amber-700 mt-1">
+                              {usedLabel}
+                              {timesUsed}
+                            </div>
+                          </div>
+                          <div className="text-sm font-semibold text-slate-700">
+                            Not eligible
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Loyalty Tab */}
           {activeTab === "loyalty" && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl p-8 text-white">
+              <div className="bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-2xl p-8 text-white shadow-lg">
                 <h2 className="text-2xl font-bold mb-2">Loyalty Rewards</h2>
-                <p className="text-white/90 mb-6">Earn 5% points on every purchase!</p>
+                <p className="text-emerald-50/90 mb-6">Earn 5% points on every purchase!</p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
-                    <div className="text-4xl font-bold mb-2">{loyaltyBalance.points}</div>
-                    <div className="text-white/80">Available Points</div>
+                  <div className="bg-white/95 rounded-xl p-6 text-emerald-900 shadow-md border border-emerald-100">
+                    <div className="text-4xl font-bold mb-2 text-emerald-900">{loyaltyBalance.points}</div>
+                    <div className="text-emerald-700 font-medium">Available Points</div>
                   </div>
                   
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
-                    <div className="text-4xl font-bold mb-2">${loyaltyBalance.available_discount}</div>
-                    <div className="text-white/80">Available Discount</div>
+                  <div className="bg-white/95 rounded-xl p-6 text-emerald-900 shadow-md border border-emerald-100">
+                    <div className="text-4xl font-bold mb-2 text-emerald-900">${loyaltyBalance.available_discount}</div>
+                    <div className="text-emerald-700 font-medium">Available Discount</div>
                   </div>
                   
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
-                    <div className="text-4xl font-bold mb-2">{loyaltyBalance.total_earned}</div>
-                    <div className="text-white/80">Total Earned</div>
+                  <div className="bg-white/95 rounded-xl p-6 text-emerald-900 shadow-md border border-emerald-100">
+                    <div className="text-4xl font-bold mb-2 text-emerald-900">{loyaltyBalance.total_earned}</div>
+                    <div className="text-emerald-700 font-medium">Total Earned</div>
                   </div>
                 </div>
                 
-                <div className="mt-6 bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                  <p className="text-sm">
-                    💡 <strong>How it works:</strong> Earn 5% points on every order. 
+                <div className="mt-6 bg-white/15 border border-white/20 rounded-xl p-4">
+                  <p className="text-sm text-emerald-50/90">
+                    <strong>How it works:</strong> Earn 5% points on every order. 
                     Redeem 100 points for $10 off your next purchase!
                   </p>
                 </div>
@@ -2605,7 +2768,7 @@ export default function CustomerView({ customer: initialCustomer }) {
               </button>
               <button
                 onClick={handleSaveAddress}
-                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all font-medium"
+                className="px-6 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all font-medium"
               >
                 {editingAddress ? 'Update Address' : 'Save Address'}
               </button>

@@ -150,7 +150,7 @@ export default function VerifyOTP() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
                   className="w-7 h-7 text-white"
                   viewBox="0 0 24 24"
@@ -165,7 +165,7 @@ export default function VerifyOTP() {
                   />
                 </svg>
               </div>
-              <span className="text-2xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-2xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -176,7 +176,7 @@ export default function VerifyOTP() {
       <div className="flex items-center justify-center min-h-screen pt-20 pb-10 px-4">
         <div className="w-full max-w-md px-8 py-10 bg-white rounded-3xl shadow-2xl shadow-green-200/50 transition-all duration-300 hover:shadow-green-300/60 border border-green-100">
           <div className="mb-8 text-center">
-            <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <div className="w-20 h-20 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
               <svg
                 className="w-10 h-10 text-white"
                 fill="none"
@@ -191,7 +191,7 @@ export default function VerifyOTP() {
                 />
               </svg>
             </div>
-            <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent mb-2">
               Verify Your Email
             </h1>
             <p className="text-gray-600 text-lg mb-2">
@@ -230,7 +230,7 @@ export default function VerifyOTP() {
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={index === 0 ? handlePaste : undefined}
-                    className={`w-12 h-14 text-center text-xl font-bold bg-gradient-to-r from-green-50 to-emerald-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 transition-all duration-300 ${
+                    className={`w-12 h-14 text-center text-xl font-bold bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border-2 rounded-xl focus:ring-2 outline-none text-gray-900 transition-all duration-300 ${
                       errors?.otp || errors?.code
                         ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                         : "border-green-200 focus:ring-green-400 focus:border-green-400 hover:border-green-300"
@@ -259,7 +259,7 @@ export default function VerifyOTP() {
             <button
               type="submit"
               disabled={loading || otp.join("").length !== 6}
-              className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl text-base font-bold text-white bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 hover:from-green-500 hover:via-emerald-500 hover:to-teal-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-400/40"
+              className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl text-base font-bold text-white bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-400/40"
             >
               {loading ? (
                 <svg
@@ -294,7 +294,7 @@ export default function VerifyOTP() {
             <button
               onClick={handleResendOtp}
               disabled={resending || timeLeft > 540}
-              className="font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="font-bold bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent hover:from-emerald-800 hover:via-teal-800 hover:to-cyan-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {resending ? "Sending..." : "Resend Code"}
             </button>

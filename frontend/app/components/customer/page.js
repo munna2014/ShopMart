@@ -12,7 +12,6 @@ export default function Page() {
   const [customerStats, setCustomerStats] = useState({
     totalOrders: 0,
     totalSpent: "$0.00",
-    loyaltyPoints: 0,
   });
   const [statsLoading, setStatsLoading] = useState(false); // Start with false for instant display
 
@@ -29,7 +28,6 @@ export default function Page() {
           setCustomerStats({
             totalOrders: parsedCache.total_orders || 0,
             totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
-            loyaltyPoints: parsedCache.loyalty_points || 0,
           });
           console.log("Customer stats loaded immediately from cache");
         } catch (e) {
@@ -55,14 +53,12 @@ export default function Page() {
             setCustomerStats({
               totalOrders: parsedCache.total_orders || 0,
               totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
-              loyaltyPoints: parsedCache.loyalty_points || 0,
             });
             setStatsLoading(false);
             
             console.log("Customer stats loaded from cache:", {
               totalOrders: parsedCache.total_orders || 0,
               totalSpent: `$${Number(parsedCache.total_spent || 0).toFixed(2)}`,
-              loyaltyPoints: parsedCache.loyalty_points || 0,
               cacheAge: Math.round(cacheAge / 1000) + "s"
             });
             
@@ -76,15 +72,11 @@ export default function Page() {
         }
 
         // Fetch fresh data
-        const [ordersResponse, loyaltyResponse] = await Promise.all([
-          api.get("/orders/summary"),
-          api.get("/loyalty/balance").catch(() => ({ data: { data: { points: 0 } } }))
-        ]);
+        const ordersResponse = await api.get("/orders/summary");
 
         const freshStats = {
           totalOrders: ordersResponse.data.total_orders || 0,
           totalSpent: `$${Number(ordersResponse.data.total_spent || 0).toFixed(2)}`,
-          loyaltyPoints: loyaltyResponse.data.data?.points || 0,
         };
 
         setCustomerStats(freshStats);
@@ -93,7 +85,6 @@ export default function Page() {
         localStorage.setItem(cacheKey, JSON.stringify({
           total_orders: ordersResponse.data.total_orders || 0,
           total_spent: ordersResponse.data.total_spent || 0,
-          loyalty_points: loyaltyResponse.data.data?.points || 0,
           cached_at: new Date().toISOString(),
         }));
 
@@ -168,7 +159,6 @@ export default function Page() {
     joinDate: joinDate,
     totalOrders: customerStats.totalOrders,
     totalSpent: customerStats.totalSpent,
-    loyaltyPoints: customerStats.loyaltyPoints,
     statsLoading: statsLoading,
   };
 

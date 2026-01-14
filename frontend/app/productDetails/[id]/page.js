@@ -365,7 +365,7 @@ export default function ProductDetailsPage() {
         <div className="max-w-7xl mx-auto px-3 sm:px-4">
           <div className="flex items-center justify-between h-12">
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-lg flex items-center justify-center">
                 <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 2L3 6V20c0 1.1.9 2 2 2h14a2 2 0 002-2V6l-3-4H6zM3 6h18" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -421,7 +421,7 @@ export default function ProductDetailsPage() {
                       disabled={stockCount <= 0 || addingToCart}
                       className={`flex-1 py-2.5 rounded-lg font-semibold text-sm ${
                         stockCount > 0 && !addingToCart
-                          ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white"
+                          ? "bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       }`}
                     >

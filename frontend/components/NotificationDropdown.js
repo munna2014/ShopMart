@@ -76,7 +76,7 @@ export default function NotificationDropdown({
       case 'payment_success':
       case 'payment_failed':
         return (
-          <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-md">
+          <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-full flex items-center justify-center shadow-md">
             <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -206,7 +206,7 @@ export default function NotificationDropdown({
         }
       `}</style>
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-green-500 to-emerald-500 paper-crease">
+      <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 paper-crease">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -230,7 +230,7 @@ export default function NotificationDropdown({
       <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
         {recentNotifications.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-emerald-100 via-teal-100 to-cyan-100 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-300">
               <svg className="w-10 h-10 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -269,7 +269,7 @@ export default function NotificationDropdown({
                         {notification.title}
                       </p>
                       {!notification.is_read && (
-                        <div className="w-2.5 h-2.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex-shrink-0 animate-pulse shadow-sm"></div>
+                        <div className="w-2.5 h-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 rounded-full flex-shrink-0 animate-pulse shadow-sm"></div>
                       )}
                     </div>
                     <p className="text-sm text-gray-600 mb-3 leading-relaxed" style={{
@@ -298,7 +298,7 @@ export default function NotificationDropdown({
             onSeeAll();
             handleClose();
           }}
-          className="w-full text-center py-3 px-4 text-sm font-bold bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+          className="w-full text-center py-3 px-4 text-sm font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 text-white rounded-xl hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
         >
           See all notifications
         </button>

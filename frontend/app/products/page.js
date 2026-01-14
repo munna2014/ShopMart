@@ -348,7 +348,7 @@ export default function ProductsPage() {
           <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
                   className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                   viewBox="0 0 24 24"
@@ -363,7 +363,7 @@ export default function ProductsPage() {
                   />
                 </svg>
               </div>
-              <span className="text-xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -397,7 +397,7 @@ export default function ProductsPage() {
                   </Link>
                   <Link
                     href="/register"
-                    className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                    className="px-4 py-2 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
                   >
                     Sign Up
                   </Link>
@@ -823,7 +823,7 @@ export default function ProductsPage() {
       <footer className="bg-gray-900 text-white py-12 px-4 sm:px-6 lg:px-8 mt-16">
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-lg flex items-center justify-center">
               <svg
                 className="w-5 h-5 text-white"
                 viewBox="0 0 24 24"
@@ -865,7 +865,7 @@ export default function ProductsPage() {
       {cartCount > 0 && (
         <Link
           href="/components/customer/cart"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-full shadow-xl hover:shadow-2xl transition-all"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-full shadow-xl hover:shadow-2xl transition-all"
         >
           <svg
             className="w-5 h-5"

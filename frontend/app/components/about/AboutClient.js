@@ -138,7 +138,7 @@ export default function AboutClient() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 h-16 md:h-20">
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg">
                 <svg
                   className="w-6 h-6 text-white"
                   viewBox="0 0 24 24"
@@ -157,7 +157,7 @@ export default function AboutClient() {
                   />
                 </svg>
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
@@ -319,7 +319,7 @@ export default function AboutClient() {
                   </Link>
                   <Link
                     href="/register"
-                    className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
+                    className="px-6 py-2.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
                   >
                     Sign Up
                   </Link>
@@ -332,7 +332,7 @@ export default function AboutClient() {
 
       {/* Hero Section */}
       <section className="relative pt-28 md:pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
           <div className="absolute top-0 left-0 w-96 h-96 bg-green-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
           <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
         </div>
@@ -340,7 +340,7 @@ export default function AboutClient() {
         <div className="relative max-w-7xl mx-auto text-center">
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 mb-6">
             About
-            <span className="block bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
+            <span className="block bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
               ShopMart
             </span>
           </h1>
@@ -363,7 +363,7 @@ export default function AboutClient() {
               { number: "150+", label: "Countries Served" },
             ].map((stat, index) => (
               <div key={index} className="text-center">
-                <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-2">
+                <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent mb-2">
                   {stat.number}
                 </div>
                 <div className="text-gray-600 font-medium">{stat.label}</div>
@@ -387,7 +387,7 @@ export default function AboutClient() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-8 py-3 rounded-xl font-semibold transition-all ${
                   activeTab === tab.id
-                    ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg"
+                    ? "bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white shadow-lg"
                     : "bg-white text-gray-700 hover:shadow-md"
                 }`}
               >
@@ -467,7 +467,7 @@ export default function AboutClient() {
                     },
                   ].map((value, index) => (
                     <div key={index} className="flex gap-4">
-                      <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
+                      <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-lg flex items-center justify-center">
                         <svg
                           className="w-6 h-6 text-white"
                           viewBox="0 0 24 24"
@@ -560,7 +560,7 @@ export default function AboutClient() {
 
       {/* CTA Section */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800">
           <div className="absolute top-0 left-0 w-96 h-96 bg-white/10 rounded-full filter blur-3xl"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full filter blur-3xl"></div>
         </div>
@@ -596,7 +596,7 @@ export default function AboutClient() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center">
                   <svg
                     className="w-6 h-6 text-white"
                     viewBox="0 0 24 24"

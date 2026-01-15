@@ -2,6 +2,10 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\HealthCheckController;
+
+// Health check endpoint (public, no auth required)
+Route::get('/health', [HealthCheckController::class, 'check']);
 
 require __DIR__ . '/user/auth.php';
 require __DIR__ . '/user/products.php';

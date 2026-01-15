@@ -52,20 +52,23 @@ class AuthController extends Controller
             ]);
 
             // Generate 6-digit OTP
-            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otp = str_pad(random_int(0, 999999), config('otp.code_length'), '0', STR_PAD_LEFT);
             
             // Store OTP linked to pending user
             \App\Models\OtpCode::create([
                 'pending_user_id' => $pendingUser->id,
                 'code' => $otp,
                 'purpose' => 'GENERAL',
-                'expires_at' => now()->addMinutes(2)
+                'expires_at' => now()->addMinutes(config('otp.expiration_minutes'))
             ]);
 
             // Send OTP email
             $emailSent = true;
             try {
                 Mail::to($pendingUser->email)->send(new OtpEmail($otp, $pendingUser->full_name));
+                // Set cooldown after successful send
+                $cooldownKey = 'otp_cooldown:' . strtolower($pendingUser->email);
+                \Illuminate\Support\Facades\Cache::put($cooldownKey, now()->timestamp, config('otp.cooldown_seconds'));
             } catch (\Exception $e) {
                 $emailSent = false;
                 Log::error('Mail Error: ' . $e->getMessage());
@@ -168,6 +171,21 @@ class AuthController extends Controller
         $request->validate(['email' => 'required|email']);
         $this->ensureEmailDomainReceivesMail($request->email);
         
+        // Check cooldown period (60 seconds between resend requests)
+        $cooldownKey = 'otp_cooldown:' . strtolower($request->email);
+        $lastSent = \Illuminate\Support\Facades\Cache::get($cooldownKey);
+        
+        if ($lastSent) {
+            $cooldownSeconds = config('otp.cooldown_seconds');
+            $secondsRemaining = $cooldownSeconds - (now()->timestamp - $lastSent);
+            if ($secondsRemaining > 0) {
+                return response()->json([
+                    'message' => "Please wait {$secondsRemaining} seconds before requesting another OTP.",
+                    'retry_after' => $secondsRemaining,
+                ], 429);
+            }
+        }
+        
         // First check if it's a pending user
         $pendingUser = \App\Models\PendingUser::where('email', $request->email)->first();
         
@@ -184,19 +202,21 @@ class AuthController extends Controller
                 ->update(['used_at' => now()]);
 
             // Generate new OTP
-            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otp = str_pad(random_int(0, 999999), config('otp.code_length'), '0', STR_PAD_LEFT);
             
             \App\Models\OtpCode::create([
                 'pending_user_id' => $pendingUser->id,
                 'code' => $otp,
                 'purpose' => 'GENERAL',
-                'expires_at' => now()->addMinutes(2)
+                'expires_at' => now()->addMinutes(config('otp.expiration_minutes'))
             ]);
 
             // Send OTP email
             $emailSent = true;
             try {
                 Mail::to($pendingUser->email)->send(new OtpEmail($otp, $pendingUser->full_name));
+                // Set cooldown after successful send
+                \Illuminate\Support\Facades\Cache::put($cooldownKey, now()->timestamp, config('otp.cooldown_seconds'));
             } catch (\Exception $e) {
                 $emailSent = false;
                 Log::error('Mail Error: ' . $e->getMessage());
@@ -225,19 +245,21 @@ class AuthController extends Controller
             ->update(['used_at' => now()]);
 
         // Generate new OTP
-        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $otp = str_pad(random_int(0, 999999), config('otp.code_length'), '0', STR_PAD_LEFT);
         
         \App\Models\OtpCode::create([
             'user_id' => $user->id,
             'code' => $otp,
             'purpose' => 'GENERAL',
-            'expires_at' => now()->addMinutes(2)
+            'expires_at' => now()->addMinutes(config('otp.expiration_minutes'))
         ]);
 
         // Send OTP email
         $emailSent = true;
         try {
             Mail::to($user->email)->send(new OtpEmail($otp, $user->full_name));
+            // Set cooldown after successful send
+            \Illuminate\Support\Facades\Cache::put($cooldownKey, now()->timestamp, config('otp.cooldown_seconds'));
         } catch (\Exception $e) {
             $emailSent = false;
             Log::error('Mail Error: ' . $e->getMessage());
@@ -309,6 +331,21 @@ class AuthController extends Controller
         ]);
         $this->ensureEmailDomainReceivesMail($request->email);
 
+        // Check cooldown period (60 seconds between password reset requests)
+        $cooldownKey = 'otp_cooldown:' . strtolower($request->email);
+        $lastSent = \Illuminate\Support\Facades\Cache::get($cooldownKey);
+        
+        if ($lastSent) {
+            $cooldownSeconds = config('otp.cooldown_seconds');
+            $secondsRemaining = $cooldownSeconds - (now()->timestamp - $lastSent);
+            if ($secondsRemaining > 0) {
+                return response()->json([
+                    'message' => "Please wait {$secondsRemaining} seconds before requesting another reset code.",
+                    'retry_after' => $secondsRemaining,
+                ], 429);
+            }
+        }
+
         $user = \App\Models\User::where('email', $request->email)->first();
 
         if (!$user->is_active) {
@@ -322,19 +359,21 @@ class AuthController extends Controller
             ->update(['used_at' => now()]);
 
         // Generate new OTP for password reset
-        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $otp = str_pad(random_int(0, 999999), config('otp.code_length'), '0', STR_PAD_LEFT);
         
         \App\Models\OtpCode::create([
             'user_id' => $user->id,
             'code' => $otp,
             'purpose' => 'PASSWORD_RESET',
-            'expires_at' => now()->addMinutes(2)
+            'expires_at' => now()->addMinutes(config('otp.expiration_minutes'))
         ]);
 
         // Send OTP email
         $emailSent = true;
         try {
             Mail::to($user->email)->send(new OtpEmail($otp, $user->full_name, 'Password Reset'));
+            // Set cooldown after successful send
+            \Illuminate\Support\Facades\Cache::put($cooldownKey, now()->timestamp, config('otp.cooldown_seconds'));
         } catch (\Exception $e) {
             $emailSent = false;
             Log::error('Password Reset Mail Error: ' . $e->getMessage());

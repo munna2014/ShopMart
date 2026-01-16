@@ -48,6 +48,7 @@ export default function HomeClient() {
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [searchSuggestionsLoading, setSearchSuggestionsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Image sets for rotation
   const imageSets = [
@@ -502,13 +503,13 @@ export default function HomeClient() {
     <div className="min-h-screen bg-white">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 h-16 md:h-20">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex items-center justify-between gap-2 h-14 sm:h-16 md:h-20">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 group flex-shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-gradient-to-br from-emerald-700 via-teal-700 to-cyan-800 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
                 <svg
-                  className="w-6 h-6 md:w-7 md:h-7 text-white"
+                  className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-white"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -521,29 +522,29 @@ export default function HomeClient() {
                   />
                 </svg>
               </div>
-              <span className="text-xl md:text-2xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
+              <span className="text-base sm:text-xl md:text-2xl font-black bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 ShopMart
               </span>
             </Link>
 
             {/* Desktop Navigation - Centered */}
-            <div className="hidden ml-30 md:flex items-center justify-center flex-1">
-              <div className="flex items-center gap-8">
+            <div className="hidden lg:flex items-center justify-center flex-1">
+              <div className="flex items-center gap-6 xl:gap-8">
                 <a
                   href="#categories"
-                  className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
+                  className="text-sm xl:text-base text-gray-700 hover:text-green-600 font-semibold transition-colors"
                 >
                   Categories
                 </a>
                 <a
                   href="#featured"
-                  className="text-gray-700 hover:text-green-600 font-semibold transition-colors"
+                  className="text-sm xl:text-base text-gray-700 hover:text-green-600 font-semibold transition-colors"
                 >
                   Products
                 </a>
                 <a
                   href="/components/about"
-                  className="text-gray-700  hover:text-green-600 font-semibold transition-colors"
+                  className="text-sm xl:text-base text-gray-700 hover:text-green-600 font-semibold transition-colors"
                 >
                   About
                 </a>
@@ -551,11 +552,11 @@ export default function HomeClient() {
             </div>
 
             {/* Right Side - Search and Auth */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               {/* Desktop Search */}
               <form
                 onSubmit={handleSearchSubmit}
-                className="hidden lg:flex items-center gap-2 w-56 xl:w-72"
+                className="hidden lg:flex items-center gap-2 w-48 xl:w-72"
               >
                 <div className="flex-1 relative">
                   <svg
@@ -651,11 +652,11 @@ export default function HomeClient() {
                         setNotificationDropdownOpen((prev) => !prev);
                         setMenuOpen(false);
                       }}
-                      className="relative p-2 text-green-600 hover:text-green-700 transition-colors"
+                      className="relative p-1.5 sm:p-2 text-green-600 hover:text-green-700 transition-colors"
                       aria-label="Notifications"
                     >
                       <svg
-                        className="w-6 h-6"
+                        className="w-5 h-5 sm:w-6 sm:h-6"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -668,7 +669,7 @@ export default function HomeClient() {
                         />
                       </svg>
                       {unreadNotifications > 0 && (
-                        <span className="absolute -top-1 -right-1 min-w-[18px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        <span className="absolute -top-1 -right-1 min-w-[16px] sm:min-w-[18px] h-4 sm:h-5 px-1 rounded-full bg-rose-500 text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center">
                           {unreadNotifications > 99 ? "99+" : unreadNotifications}
                         </span>
                       )}
@@ -689,13 +690,13 @@ export default function HomeClient() {
                         setMenuOpen((prev) => !prev);
                         setNotificationDropdownOpen(false);
                       }}
-                      className="p-2 text-green-600 hover:text-green-700 transition-colors"
+                      className="p-1.5 sm:p-2 text-green-600 hover:text-green-700 transition-colors"
                       aria-label="Open menu"
                       aria-expanded={menuOpen}
                       aria-haspopup="menu"
                     >
                       <svg
-                        className="w-6 h-6"
+                        className="w-5 h-5 sm:w-6 sm:h-6"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -705,50 +706,50 @@ export default function HomeClient() {
                       </svg>
                     </button>
                     {menuOpen && (
-                      <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                      <div className="absolute right-0 mt-2 w-52 sm:w-60 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
                         <Link
                           href="/components/customer?tab=profile"
-                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          className="block px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           onClick={() => setMenuOpen(false)}
                         >
                           Personal Info
                         </Link>
                         <Link
                           href="/components/customer?tab=orders"
-                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          className="block px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           onClick={() => setMenuOpen(false)}
                         >
                           Orders
                         </Link>
                         <Link
                           href="/components/customer?tab=notifications"
-                          className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           onClick={() => setMenuOpen(false)}
                         >
                           <span>Notifications</span>
                           {unreadNotifications > 0 && (
-                            <span className="min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                            <span className="min-w-[18px] sm:min-w-[20px] h-4 sm:h-5 px-1 rounded-full bg-rose-500 text-white text-[9px] sm:text-[10px] font-bold flex items-center justify-center">
                               {unreadNotifications > 99 ? "99+" : unreadNotifications}
                             </span>
                           )}
                         </Link>
                         <Link
                           href="/products"
-                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          className="block px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           onClick={() => setMenuOpen(false)}
                         >
                           Products
                         </Link>
                         <Link
                           href="/components/customer?tab=addresses"
-                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          className="block px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           onClick={() => setMenuOpen(false)}
                         >
                           Addresses
                         </Link>
                         <Link
                           href="/components/customer?tab=settings"
-                          className="block px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                          className="block px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           onClick={() => setMenuOpen(false)}
                         >
                           Settings
@@ -758,7 +759,7 @@ export default function HomeClient() {
                             setMenuOpen(false);
                             handleSignOut();
                           }}
-                          className="w-full text-left px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                          className="w-full text-left px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-red-600 hover:bg-red-50"
                         >
                           Sign Out
                         </button>
@@ -768,15 +769,33 @@ export default function HomeClient() {
                 </>
               ) : (
                 <>
+                  {/* Mobile Menu Button for non-authenticated users */}
+                  <button
+                    onClick={() => setMobileMenuOpen((prev) => !prev)}
+                    className="lg:hidden p-1.5 sm:p-2 text-green-600 hover:text-green-700 transition-colors"
+                    aria-label="Open mobile menu"
+                  >
+                    <svg
+                      className="w-5 h-5 sm:w-6 sm:h-6"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  
+                  {/* Desktop Auth Buttons */}
                   <Link
                     href="/login"
-                    className="hidden sm:block px-6 py-2.5 text-green-600 font-semibold hover:text-green-700 transition-colors"
+                    className="hidden lg:block px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 text-xs sm:text-sm lg:text-base text-green-600 font-semibold hover:text-green-700 transition-colors"
                   >
                     Sign In
                   </Link>
                   <Link
                     href="/register"
-                    className="px-6 py-2.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
+                    className="hidden lg:block px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 text-xs sm:text-sm lg:text-base bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg sm:rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
                   >
                     Sign Up
                   </Link>
@@ -785,17 +804,62 @@ export default function HomeClient() {
             </div>
           </div>
         </div>
+
+        {/* Mobile Menu Dropdown for non-authenticated users */}
+        {!showCustomerNav && mobileMenuOpen && (
+          <div className="lg:hidden border-t border-gray-200 bg-white">
+            <div className="px-3 py-2 space-y-1">
+              <a
+                href="#categories"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-lg"
+              >
+                Categories
+              </a>
+              <a
+                href="#featured"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-lg"
+              >
+                Products
+              </a>
+              <a
+                href="/components/about"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 rounded-lg"
+              >
+                About
+              </a>
+              <div className="pt-2 border-t border-gray-200 space-y-2">
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2.5 text-sm font-semibold text-green-600 hover:bg-green-50 rounded-lg text-center"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2.5 text-sm font-semibold bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-lg text-center hover:shadow-lg"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-28 md:pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative pt-20 sm:pt-24 md:pt-28 pb-12 sm:pb-16 md:pb-20 px-3 sm:px-4 lg:px-8 overflow-hidden">
         {/* Clean Background with Rotating Images */}
         <div className="absolute inset-0 bg-white">
           {/* Background Images Layer */}
-          <div className="absolute inset-0 opacity-60">
+          <div className="absolute inset-0 opacity-40 sm:opacity-50 md:opacity-60">
             {/* Shopping Image 1 - Top Left */}
             <div
-              className="absolute top-0 left-0 w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96 bg-cover bg-center rounded-full blur-sm animate-float-slow transition-all duration-1000 hidden sm:block"
+              className="absolute top-0 left-0 w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 bg-cover bg-center rounded-full blur-sm animate-float-slow transition-all duration-1000"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][0]})`,
               }}
@@ -803,7 +867,7 @@ export default function HomeClient() {
 
             {/* Shopping Image 2 - Top Right */}
             <div
-              className="absolute top-20 right-10 w-60 h-60 sm:w-72 sm:h-72 lg:w-80 lg:h-80 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-2000 transition-all duration-1000 hidden sm:block"
+              className="absolute top-10 sm:top-20 right-5 sm:right-10 w-40 h-40 sm:w-60 sm:h-60 md:w-72 md:h-72 lg:w-80 lg:h-80 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-2000 transition-all duration-1000"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][1]})`,
               }}
@@ -811,7 +875,7 @@ export default function HomeClient() {
 
             {/* Shopping Image 3 - Bottom Left */}
             <div
-              className="absolute bottom-10 left-10 w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-4000 transition-all duration-1000 hidden md:block"
+              className="absolute bottom-5 sm:bottom-10 left-5 sm:left-10 w-36 h-36 sm:w-56 sm:h-56 md:w-64 md:h-64 lg:w-72 lg:h-72 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-4000 transition-all duration-1000 hidden sm:block"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][2]})`,
               }}
@@ -819,7 +883,7 @@ export default function HomeClient() {
 
             {/* Shopping Image 4 - Bottom Right */}
             <div
-              className="absolute bottom-20 right-20 w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-3000 transition-all duration-1000 hidden md:block"
+              className="absolute bottom-10 sm:bottom-20 right-10 sm:right-20 w-32 h-32 sm:w-48 sm:h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 bg-cover bg-center rounded-full blur-sm animate-float-slow animation-delay-3000 transition-all duration-1000 hidden md:block"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][3]})`,
               }}
@@ -827,7 +891,7 @@ export default function HomeClient() {
 
             {/* Shopping Image 5 - Center */}
             <div
-              className="absolute top-1/3 left-1/3 w-40 h-40 sm:w-48 sm:h-48 lg:w-56 lg:h-56 bg-cover bg-center rounded-full blur-sm animate-blob transition-all duration-1000 hidden sm:block"
+              className="absolute top-1/3 left-1/3 w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 lg:w-56 lg:h-56 bg-cover bg-center rounded-full blur-sm animate-blob transition-all duration-1000 hidden sm:block"
               style={{
                 backgroundImage: `url(${imageSets[currentImageSet][4]})`,
               }}
@@ -838,9 +902,9 @@ export default function HomeClient() {
         <div className="relative max-w-7xl mx-auto">
           <div className="text-center max-w-4xl mx-auto">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg mb-8">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg mb-6 sm:mb-8">
               <svg
-                className="w-5 h-5 text-yellow-500"
+                className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -853,13 +917,13 @@ export default function HomeClient() {
                   strokeLinejoin="round"
                 />
               </svg>
-              <span className="text-sm font-semibold text-gray-700">
+              <span className="text-xs sm:text-sm font-semibold text-gray-700">
                 Premium Quality Products
               </span>
             </div>
 
             {/* Title */}
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight px-2">
               Shop Smarter,
               <span className="block bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                 Live Better
@@ -867,20 +931,20 @@ export default function HomeClient() {
             </h1>
 
             {/* Description */}
-            <p className="text-base sm:text-lg lg:text-xl text-black mb-10 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-700 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed px-4">
               Discover thousands of premium products from trusted brands. Fast
               shipping, secure payments, and unbeatable prices.
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 mb-10 sm:mb-12 px-4">
               <Link
                 href="#featured"
-                className="group w-full sm:w-auto justify-center px-7 py-3.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl font-semibold hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
+                className="group w-full sm:w-auto justify-center px-6 sm:px-7 py-3 sm:py-3.5 bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl text-sm sm:text-base font-semibold hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
               >
                 Shop Now
                 <svg
-                  className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                  className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform"
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -897,35 +961,35 @@ export default function HomeClient() {
 
               <a
                 href="#categories"
-                className="w-full sm:w-auto text-center px-7 py-3.5 bg-white text-gray-700 rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all border-2 border-gray-200"
+                className="w-full sm:w-auto text-center px-6 sm:px-7 py-3 sm:py-3.5 bg-white text-gray-700 rounded-xl text-sm sm:text-base font-semibold hover:shadow-lg hover:scale-105 transition-all border-2 border-gray-200"
               >
                 Browse Categories
               </a>
             </div>
 
             {/* Stats */}
-            <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-12">
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 md:gap-8 lg:gap-12 px-4">
+              <div className="text-center min-w-[80px]">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
                   {stats.total_products || "0"}
                 </div>
-                <div className="text-sm text-gray-600 mt-1">Products</div>
+                <div className="text-xs sm:text-sm text-gray-600 mt-1">Products</div>
               </div>
-              <div className="hidden sm:block w-px h-12 bg-gray-300"></div>
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-gray-900">
+              <div className="hidden xs:block w-px h-10 sm:h-12 bg-gray-300"></div>
+              <div className="text-center min-w-[80px]">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
                   {stats.total_customers || "0"}
                 </div>
-                <div className="text-sm text-gray-600 mt-1">
+                <div className="text-xs sm:text-sm text-gray-600 mt-1">
                   Happy Customers
                 </div>
               </div>
-              <div className="hidden sm:block w-px h-12 bg-gray-300"></div>
-              <div className="text-center">
-                <div className="text-3xl font-bold bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
+              <div className="hidden xs:block w-px h-10 sm:h-12 bg-gray-300"></div>
+              <div className="text-center min-w-[80px]">
+                <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
                   Free
                 </div>
-                <div className="text-sm text-black  mt-1">Shipping</div>
+                <div className="text-xs sm:text-sm text-gray-600 mt-1">Shipping</div>
               </div>
             </div>
           </div>
@@ -933,28 +997,28 @@ export default function HomeClient() {
       </section>
 
       {/* Categories Section */}
-      <section id="categories" className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+      <section id="categories" className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-10 sm:mb-12 md:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 px-4">
               Shop by Category
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 px-4">
               Explore our wide range of product categories
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {dataLoading ? (
               // Loading skeleton
               Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 animate-pulse"
+                  className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg border border-gray-100 animate-pulse"
                 >
-                  <div className="w-16 h-16 bg-gray-200 rounded-xl mb-6"></div>
-                  <div className="h-6 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-20"></div>
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gray-200 rounded-lg sm:rounded-xl mb-4 sm:mb-6"></div>
+                  <div className="h-5 sm:h-6 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-3 sm:h-4 bg-gray-200 rounded w-16 sm:w-20"></div>
                 </div>
               ))
             ) : categories.length === 0 ? (
@@ -1005,13 +1069,13 @@ export default function HomeClient() {
                 return (
                   <div
                     key={index}
-                    className="group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer border border-gray-100"
+                    className="group relative bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer border border-gray-100"
                   >
                     <div
-                      className={`w-16 h-16 bg-gradient-to-br ${colorClass} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg`}
+                      className={`w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gradient-to-br ${colorClass} rounded-lg sm:rounded-xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform shadow-lg`}
                     >
                       <svg
-                        className="w-8 h-8 text-white"
+                        className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -1024,10 +1088,10 @@ export default function HomeClient() {
                         />
                       </svg>
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">
                       {category.name}
                     </h3>
-                    <p className="text-gray-600 font-medium">
+                    <p className="text-sm sm:text-base text-gray-600 font-medium">
                       {category.count || 0} items
                     </p>
                   </div>
@@ -1039,31 +1103,31 @@ export default function HomeClient() {
       </section>
 
       {/* Featured Products */}
-      <section id="featured" className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
+      <section id="featured" className="py-12 sm:py-16 md:py-20 px-3 sm:px-4 lg:px-8 bg-gray-50">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+          <div className="text-center mb-10 sm:mb-12 md:mb-16">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 px-4">
               Featured Products
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 px-4">
               Hand-picked products just for you
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {dataLoading ? (
               // Loading skeleton for products
               Array.from({ length: 4 }).map((_, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-2xl overflow-hidden shadow-lg animate-pulse"
+                  className="bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-lg animate-pulse"
                 >
                   <div className="aspect-[4/3] bg-gray-200"></div>
-                  <div className="p-4">
-                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
-                    <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
-                    <div className="h-10 bg-gray-200 rounded"></div>
+                  <div className="p-3 sm:p-4">
+                    <div className="h-3 sm:h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-3 sm:h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
+                    <div className="h-5 sm:h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="h-9 sm:h-10 bg-gray-200 rounded"></div>
                   </div>
                 </div>
               ))
@@ -1110,7 +1174,7 @@ export default function HomeClient() {
                 return (
               <div
                 key={index}
-                className="group bg-gray rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 flex flex-col h-full"
+                className="group bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 flex flex-col h-full"
               >
                 {product.badge && (
                   <div
@@ -1129,82 +1193,82 @@ export default function HomeClient() {
                   <ProductImage
                     src={product.image_url || product.image}
                     alt={product.name}
-                    className="w-90 h-100 object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
                 </Link>
 
-                <div className="p-4 flex flex-col flex-grow">
-                  <div className="mb-2">
+                <div className="p-3 sm:p-4 flex flex-col flex-grow">
+                  <div className="mb-1 sm:mb-2">
                     {product.category && (
-                      <span className="text-xs text-green-600 font-medium uppercase tracking-wide">
+                      <span className="text-[10px] sm:text-xs text-green-600 font-medium uppercase tracking-wide">
                         {product.category}
                       </span>
                     )}
                   </div>
                   <Link
                     href={`/customer_product_details/${product.id}`}
-                    className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 hover:text-green-700 transition-colors block"
+                    className="text-sm sm:text-base md:text-lg font-bold text-gray-900 mb-1 sm:mb-2 line-clamp-2 hover:text-green-700 transition-colors block"
                   >
                     {product.name}
                   </Link>
 
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex text-yellow-400">
+                  <div className="flex items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+                    <div className="flex text-yellow-400 text-xs sm:text-sm">
                       {"\u2605".repeat(ratingValue)}
                       {"\u2606".repeat(5 - ratingValue)}
                     </div>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-xs sm:text-sm text-gray-500">
                       ({reviewCount})
                     </span>
                   </div>
 
                   <div className="mt-auto">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl font-bold text-gray-900">
+                    <div className="flex items-center gap-1 sm:gap-2 mb-1 sm:mb-2 flex-wrap">
+                      <span className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                         ${pricing.discountedPrice.toFixed(2)}
                       </span>
                       {showDiscount ? (
-                        <span className="text-lg text-gray-400 line-through">
+                        <span className="text-sm sm:text-base md:text-lg text-gray-400 line-through">
                           ${pricing.basePrice.toFixed(2)}
                         </span>
                       ) : null}
                       {showDiscount ? (
-                        <span className="text-xs font-semibold text-rose-600">
+                        <span className="text-[10px] sm:text-xs font-semibold text-rose-600">
                           -{pricing.discountPercent}%
                         </span>
                       ) : null}
                     </div>
-                    <div className="h-8 mb-2">
+                    <div className="h-6 sm:h-8 mb-1 sm:mb-2">
                       {showDiscount && product.discount_ends_at ? (
                         <DiscountCountdown endDate={product.discount_ends_at} />
                       ) : null}
                     </div>
 
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-gray-600">
+                    <div className="flex items-center justify-between mb-2 sm:mb-3">
+                      <span className="text-xs sm:text-sm text-gray-600">
                         {availableStock > 0
                           ? `${availableStock} in stock`
                           : 'Out of stock'}
                       </span>
                       {product.inStock === false && (
-                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                        <span className="text-[10px] sm:text-xs bg-red-100 text-red-800 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
                           Out of Stock
                         </span>
                       )}
                     </div>
 
                     {cartItem ? (
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center justify-between gap-2 sm:gap-3">
                         <button
                           onClick={() =>
                             updateCartQuantity(product.id, cartQuantity - 1)
                           }
-                          className="w-10 h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200"
+                          className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center hover:bg-gray-200 text-sm sm:text-base"
                         >
                           -
                         </button>
-                        <span className="font-semibold text-gray-900">
+                        <span className="text-sm sm:text-base font-semibold text-gray-900">
                           {cartQuantity}
                         </span>
                         <button
@@ -1212,7 +1276,7 @@ export default function HomeClient() {
                             updateCartQuantity(product.id, cartQuantity + 1)
                           }
                           disabled={atStockLimit}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base ${
                             atStockLimit
                               ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                               : "bg-green-600 text-white hover:bg-green-500"
@@ -1224,7 +1288,7 @@ export default function HomeClient() {
                     ) : (
                       <button 
                         onClick={() => handleAddToCart(product)}
-                        className={`w-full py-3 rounded-xl font-semibold transition-all ${
+                        className={`w-full py-2 sm:py-2.5 md:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm md:text-base font-semibold transition-all ${
                           product.inStock !== false && !addingToCart[product.id]
                             ? 'bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white hover:shadow-lg hover:scale-105' 
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -1250,11 +1314,11 @@ export default function HomeClient() {
           <div className="mt-12 text-center">
             <Link
               href="/products"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-white text-green-600 border-2 border-green-600 rounded-full font-bold hover:bg-green-50 transition-all hover:scale-105"
+              className="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base bg-white text-green-600 border-2 border-green-600 rounded-full font-bold hover:bg-green-50 transition-all hover:scale-105"
             >
               View More Products
               <svg
-                className="w-5 h-5"
+                className="w-4 h-4 sm:w-5 sm:h-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
